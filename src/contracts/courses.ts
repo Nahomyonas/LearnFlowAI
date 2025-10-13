@@ -22,3 +22,16 @@ export const ListCoursesQuerySchema = z.object({
 });
 
 export type ListCoursesQuery = z.infer<typeof ListCoursesQuerySchema>;
+
+/**
+ * GET /api/courses/[id]
+ * Query params for listing user’s courses
+ */
+export const UpdateCourseSchema = z.object({
+  title: z.string().min(1, "Title is required").max(140, "Title too long").optional(),
+  summary: z.string().max(1000).optional(),
+  status: z.enum(["draft", "published", "archived"]).optional(),
+  visibility: z.enum(["private", "unlisted", "public"]).optional(),
+});
+
+export type UpdateCourseInput = z.infer<typeof UpdateCourseSchema>;

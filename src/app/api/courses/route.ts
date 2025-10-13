@@ -1,10 +1,9 @@
-// app/api/course-briefs/route.ts
-import { z } from "zod";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { courses } from "@/db/schema";
 import { requireUserId } from "@/libs/auth";
 import { CreateCourseSchema, ListCoursesQuerySchema}from "@/contracts/courses";
+import { slugify } from "@/libs/slug";
 
 
 // GET /api/courses

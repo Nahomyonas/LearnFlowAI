@@ -1,108 +1,127 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react'
 
 type Brief = {
-  id: string;
-  topic: string | null;
-  source: "manual" | "bot";
-  mode_state: "collecting" | "ready_for_outline" | "outline_ready" | "outcomes_ready" | "committed" | "abandoned";
-  created_at: string;
-  updated_at: string;
-};
+  id: string
+  topic: string | null
+  source: 'manual' | 'bot'
+  mode_state:
+    | 'collecting'
+    | 'ready_for_outline'
+    | 'outline_ready'
+    | 'outcomes_ready'
+    | 'committed'
+    | 'abandoned'
+  created_at: string
+  updated_at: string
+}
 
 type Course = {
-  id: string;
-  title: string;
-  slug: string;
-  status: "draft" | "published" | "archived";
-  visibility: "private" | "unlisted" | "public";
-  updated_at: string;
-};
+  id: string
+  title: string
+  slug: string
+  status: 'draft' | 'published' | 'archived'
+  visibility: 'private' | 'unlisted' | 'public'
+  updated_at: string
+}
 
 export default function DashboardClient() {
-  const [briefs, setBriefs] = useState<Brief[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [briefs, setBriefs] = useState<Brief[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [loading, setLoading] = useState(true)
 
   // form state
-  const [newBriefTopic, setNewBriefTopic] = useState("");
-  const [newBriefSource, setNewBriefSource] = useState<"manual" | "bot">("manual");
-  const [newCourseTitle, setNewCourseTitle] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [committingId, setCommittingId] = useState<string | null>(null)
+  const [newBriefTopic, setNewBriefTopic] = useState('')
+  const [newBriefSource, setNewBriefSource] = useState<'manual' | 'bot'>(
+    'manual'
+  )
+  const [newCourseTitle, setNewCourseTitle] = useState('')
+  const [message, setMessage] = useState<string | null>(null)
 
   async function load() {
-    setLoading(true);
+    setLoading(true)
     try {
       const [bRes, cRes] = await Promise.all([
-        fetch("/api/course-briefs?limit=20", { cache: "no-store" }),
-        fetch("/api/courses?limit=20", { cache: "no-store" }),
-      ]);
-      const bJson = await bRes.json();
-      const cJson = await cRes.json();
-      setBriefs(bJson.items ?? []);
-      setCourses(cJson.items ?? []);
+        fetch('/api/course-briefs?limit=20', { cache: 'no-store' }),
+        fetch('/api/courses?limit=20', { cache: 'no-store' }),
+      ])
+      const bJson = await bRes.json()
+      const cJson = await cRes.json()
+      setBriefs(bJson.items ?? [])
+      setCourses(cJson.items ?? [])
     } catch (e: any) {
-      setMessage(`Load failed: ${e?.message ?? String(e)}`);
+      setMessage(`Load failed: ${e?.message ?? String(e)}`)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load()
+  }, [])
 
   async function createBrief() {
-    setMessage(null);
+    setMessage(null)
     try {
-      const res = await fetch("/api/course-briefs", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/course-briefs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ source: newBriefSource, topic: newBriefTopic }),
-      });
+      })
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error?.message || "Failed to create brief");
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error?.message || 'Failed to create brief')
       }
-      setNewBriefTopic("");
-      await load();
-      setMessage("Brief created ✅");
+      setNewBriefTopic('')
+      await load()
+      setMessage('Brief created ✅')
     } catch (e: any) {
-      setMessage(e.message || "Error creating brief");
+      setMessage(e.message || 'Error creating brief')
     }
   }
 
   async function createCourse() {
-    setMessage(null);
+    setMessage(null)
     try {
-      const res = await fetch("/api/courses", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ title: newCourseTitle }),
-      });
+      })
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error?.message || "Failed to create course");
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error?.message || 'Failed to create course')
       }
-      setNewCourseTitle("");
-      await load();
-      setMessage("Course created ✅");
+      setNewCourseTitle('')
+      await load()
+      setMessage('Course created ✅')
     } catch (e: any) {
-      setMessage(e.message || "Error creating course");
+      setMessage(e.message || 'Error creating course')
     }
   }
 
   async function commitBrief(id: string) {
-    setMessage(null);
+    setMessage(null)
+    setCommittingId(id)
     try {
-      const res = await fetch(`/api/course-briefs/${id}/commit`, { method: "POST" });
+      const res = await fetch(`/api/course-briefs/${id}/commit`, {
+        method: 'POST',
+      })
+      const j = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error?.message || "Commit failed");
+        const msg =
+          j?.error?.message ||
+          (res.status === 409 ? 'Already committed' : 'Commit failed')
+        throw new Error(msg)
       }
-      await load();
-      setMessage("Committed brief → course ✅");
+      await load() // refresh briefs + courses
+      setMessage('Committed brief → course ✅')
     } catch (e: any) {
-      setMessage(e.message || "Commit error");
+      setMessage(e.message || 'Commit error')
+    } finally {
+      setCommittingId(null)
     }
   }
 
@@ -131,7 +150,9 @@ export default function DashboardClient() {
           <select
             className="w-full rounded-md border px-3 py-2 md:w-40"
             value={newBriefSource}
-            onChange={(e) => setNewBriefSource(e.target.value as "manual" | "bot")}
+            onChange={(e) =>
+              setNewBriefSource(e.target.value as 'manual' | 'bot')
+            }
           >
             <option value="manual">manual</option>
             <option value="bot">bot</option>
@@ -185,17 +206,23 @@ export default function DashboardClient() {
         ) : (
           <ul className="grid gap-3">
             {briefs.map((b) => (
-              <li key={b.id} className="flex items-center justify-between rounded-lg border p-3">
+              <li
+                key={b.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
                 <div>
-                  <div className="font-medium">{b.topic || "(untitled brief)"}</div>
+                  <div className="font-medium">
+                    {b.topic || '(untitled brief)'}
+                  </div>
                   <div className="text-xs text-gray-500">
-                    {b.source} · {b.mode_state} · updated {new Date(b.updated_at).toLocaleString()}
+                    {b.source} · {b.mode_state} · updated{' '}
+                    {new Date(b.updated_at).toLocaleString()}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => commitBrief(b.id)}
-                    disabled={b.mode_state === "committed"}
+                    disabled={b.mode_state === 'committed'}
                     className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-40"
                   >
                     Commit → Course
@@ -220,11 +247,15 @@ export default function DashboardClient() {
         ) : (
           <ul className="grid gap-3">
             {courses.map((c) => (
-              <li key={c.id} className="flex items-center justify-between rounded-lg border p-3">
+              <li
+                key={c.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
                 <div>
                   <div className="font-medium">{c.title}</div>
                   <div className="text-xs text-gray-500">
-                    {c.status} · {c.visibility} · updated {new Date(c.updated_at).toLocaleString()}
+                    {c.status} · {c.visibility} · updated{' '}
+                    {new Date(c.updated_at).toLocaleString()}
                   </div>
                 </div>
                 <div className="text-xs text-gray-500">/{c.slug}</div>
@@ -234,5 +265,5 @@ export default function DashboardClient() {
         )}
       </section>
     </div>
-  );
+  )
 }
