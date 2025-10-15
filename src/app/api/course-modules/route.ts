@@ -1,41 +1,47 @@
 export const runtime = "nodejs";
 
 import { z } from 'zod'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, asc } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { courseModules, courses } from '@/db/schema'
 import { requireUserId } from '@/libs/auth'
 import { CreateCourseModuleSchema } from '@/contracts/course-modules'
 
 // Optional: tiny validator for GET query (?mode_state=..., ?limit=...)
-const ListQuerySchema = z.object({
-  status: z.enum(['draft', 'published', 'archived']).optional(),
-  limit: z.coerce.number().int().positive().max(50).optional(), // default 20
-})
+const ListModulesQuery = z.object({
+  course_id: z.string().uuid(),
+  limit: z.coerce.number().int().positive().max(200).optional(),
+});
 
 export async function GET(req: Request) {
-  const userId = await requireUserId()
+  const userId = await requireUserId();
 
-  // validate query params
-  const url = new URL(req.url)
-  const parsed = ListQuerySchema.safeParse({
-    status: url.searchParams.get('status') ?? undefined,
-    limit: url.searchParams.get('limit') ?? undefined,
-  })
+  const url = new URL(req.url);
+  const parsed = ListModulesQuery.safeParse({
+    course_id: url.searchParams.get("course_id") ?? undefined,
+    limit: url.searchParams.get("limit") ?? undefined,
+  });
   if (!parsed.success) {
     return Response.json(
-      { error: { code: 'BAD_REQUEST', details: parsed.error.format() } },
+      { error: { code: "BAD_REQUEST", details: parsed.error.format() } },
       { status: 400 }
-    )
+    );
   }
-  const { status, limit = 20 } = parsed.data
+  const { course_id, limit = 200 } = parsed.data;
 
-  // build where clause
-  const where = status
-    ? and(eq(courseModules.courseId, userId), eq(courseModules.status, status))
-    : eq(courseModules.courseId, userId)
+  // ownership guard (course must belong to user)
+  const [course] = await db
+    .select({ id: courses.id })
+    .from(courses)
+    .where(and(eq(courses.id, course_id), eq(courses.ownerUserId, userId)))
+    .limit(1);
+  if (!course) {
+    return Response.json(
+      { error: { code: "NOT_FOUND", message: "Course not found" } },
+      { status: 404 }
+    );
+  }
 
-  // select a few useful fields
   const items = await db
     .select({
       id: courseModules.id,
@@ -43,13 +49,14 @@ export async function GET(req: Request) {
       summary: courseModules.summary,
       position: courseModules.position,
       status: courseModules.status,
+      updated_at: courseModules.updatedAt,
     })
     .from(courseModules)
-    .where(where)
-    .orderBy(desc(courseModules.position))
-    .limit(limit)
+    .where(eq(courseModules.courseId, course_id))
+    .orderBy(asc(courseModules.position))
+    .limit(limit);
 
-  return Response.json({ items })
+  return Response.json({ items }, { status: 200 });
 }
 
 export async function POST(req: Request) {
