@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { courses } from "@/db/schema";
-import { requireUserId }  from "@/libs/auth";
+import { requireUserId }  from "@/lib/auth";
 import { UpdateCourseSchema } from "@/contracts/courses";
 
 // weak ETag based on updated_at timestamp

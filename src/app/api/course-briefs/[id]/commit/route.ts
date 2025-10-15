@@ -4,8 +4,8 @@ import { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { courseBriefs, briefEvents, courses } from "@/db/schema";
-import { requireUserId } from "@/libs/auth";
-import { slugify } from "@/libs/slug";
+import { requireUserId } from "@/lib/auth";
+import { slugify } from "@/lib/slug";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireUserId();

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { courseBriefs } from "@/db/schema";
-import { requireUserId } from "@/libs/auth";
+import { requireUserId } from "@/lib/auth";
 import { CreateCourseBriefSchema } from "@/contracts/briefs";
 
 // Optional: tiny validator for GET query (?mode_state=..., ?limit=...)

@@ -3,9 +3,9 @@ export const runtime = "nodejs";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { courses } from "@/db/schema";
-import { requireUserId } from "@/libs/auth";
+import { requireUserId } from "@/lib/auth";
 import { CreateCourseSchema, ListCoursesQuerySchema}from "@/contracts/courses";
-import { slugify } from "@/libs/slug";
+import { slugify } from "@/lib/slug";
 
 
 // Query params for listing user’s courses

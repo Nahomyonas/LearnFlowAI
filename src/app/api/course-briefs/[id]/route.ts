@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { courseBriefs } from '@/db/schema'
-import { requireUserId } from '@/libs/auth'
+import { requireUserId } from '@/lib/auth'
 import { UpdateCourseBriefSchema } from '@/contracts/briefs'
 
 const IF_MATCH_REGEX = /^W\/"(\d+)"$/
