@@ -177,8 +177,8 @@ export const courses = pgTable(
 
 /**
   * table relations 
- *  */ 
-
+ *  
+**/ 
 export const courseBriefsRelations = relations(courseBriefs, ({ one, many }) => ({
   course: one(courses, {
     fields: [courseBriefs.committedCourseId],
