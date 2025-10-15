@@ -1,4 +1,5 @@
-// app/api/course-briefs/route.ts
+export const runtime = "nodejs";
+
 import { z } from "zod";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";

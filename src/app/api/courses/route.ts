@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { courses } from "@/db/schema";
@@ -6,7 +8,6 @@ import { CreateCourseSchema, ListCoursesQuerySchema}from "@/contracts/courses";
 import { slugify } from "@/libs/slug";
 
 
-// GET /api/courses
 // Query params for listing user’s courses
 // Supports optional filtering by status, search query, and limit
 export async function GET(req: Request) {
