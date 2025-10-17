@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signOut } from '@/lib/auth-client'
+import UserMenu from './UserMenu'
 
 type BriefSource = 'manual' | 'bot'
 type Status = 'draft' | 'published' | 'archived'
@@ -71,7 +72,9 @@ const cls = {
 const api = {
   briefs: {
     list: async (limit = 20) => {
-      const res = await fetch(`/api/course-briefs?limit=${limit}`, { cache: 'no-store' })
+      const res = await fetch(`/api/course-briefs?limit=${limit}`, {
+        cache: 'no-store',
+      })
       const j = await res.json()
       if (!res.ok) throw new Error(j?.error?.message || 'Failed to load briefs')
       return (j.items ?? []) as Brief[]
@@ -83,20 +86,29 @@ const api = {
         body: JSON.stringify(payload),
       })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j?.error?.message || 'Failed to create brief')
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to create brief')
     },
     commit: async (id: string) => {
-      const res = await fetch(`/api/course-briefs/${id}/commit`, { method: 'POST' })
+      const res = await fetch(`/api/course-briefs/${id}/commit`, {
+        method: 'POST',
+      })
       const j = await res.json().catch(() => ({}))
       if (!res.ok)
-        throw new Error(j?.error?.message || (res.status === 409 ? 'Already committed' : 'Commit failed'))
+        throw new Error(
+          j?.error?.message ||
+            (res.status === 409 ? 'Already committed' : 'Commit failed')
+        )
     },
   },
   courses: {
     list: async (limit = 20) => {
-      const res = await fetch(`/api/courses?limit=${limit}`, { cache: 'no-store' })
+      const res = await fetch(`/api/courses?limit=${limit}`, {
+        cache: 'no-store',
+      })
       const j = await res.json()
-      if (!res.ok) throw new Error(j?.error?.message || 'Failed to load courses')
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to load courses')
       return (j.items ?? []) as Course[]
     },
     create: async (payload: { title: string }) => {
@@ -106,14 +118,18 @@ const api = {
         body: JSON.stringify(payload),
       })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j?.error?.message || 'Failed to create course')
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to create course')
     },
   },
   modules: {
     listByCourse: async (courseId: string) => {
-      const res = await fetch(`/api/course-modules?course_id=${courseId}`, { cache: 'no-store' })
+      const res = await fetch(`/api/course-modules?course_id=${courseId}`, {
+        cache: 'no-store',
+      })
       const j = await res.json()
-      if (!res.ok) throw new Error(j?.error?.message || 'Failed to load modules')
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to load modules')
       return (j.items ?? []) as Module[]
     },
     create: async (payload: { courseId: string; title: string }) => {
@@ -123,7 +139,8 @@ const api = {
         body: JSON.stringify(payload),
       })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j?.error?.message || 'Failed to create module')
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to create module')
     },
   },
 }
@@ -187,9 +204,15 @@ export default function DashboardClient() {
   const [newCourseTitle, setNewCourseTitle] = useState('')
 
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null)
-  const [modulesByCourse, setModulesByCourse] = useState<Record<string, Module[]>>({})
-  const [newModuleTitleByCourse, setNewModuleTitleByCourse] = useState<Record<string, string>>({})
-  const [loadingModulesFor, setLoadingModulesFor] = useState<string | null>(null)
+  const [modulesByCourse, setModulesByCourse] = useState<
+    Record<string, Module[]>
+  >({})
+  const [newModuleTitleByCourse, setNewModuleTitleByCourse] = useState<
+    Record<string, string>
+  >({})
+  const [loadingModulesFor, setLoadingModulesFor] = useState<string | null>(
+    null
+  )
   const [committingId, setCommittingId] = useState<string | null>(null)
 
   const { data: session } = useSession()
@@ -212,7 +235,10 @@ export default function DashboardClient() {
     const ac = new AbortController()
     loadAbort.current = ac
     try {
-      const [b, c] = await Promise.all([api.briefs.list(20), api.courses.list(20)])
+      const [b, c] = await Promise.all([
+        api.briefs.list(20),
+        api.courses.list(20),
+      ])
       if (ac.signal.aborted) return
       setBriefs(b)
       setCourses(c)
@@ -305,24 +331,29 @@ export default function DashboardClient() {
   const coursesCount = useMemo(() => courses.length, [courses])
   const briefsCount = useMemo(() => briefs.length, [briefs])
   const userLabel =
-    session?.user?.name || session?.user?.email || (session ? 'Signed in' : 'Guest')
+    session?.user?.name ||
+    session?.user?.email ||
+    (session ? 'Signed in' : 'Guest')
 
   return (
     <div className={cls.page}>
       {/* Header */}
       <header className="flex items-center justify-between">
         <div>
-          <h1 className={cls.h1}>LearnFlow — Dashboard</h1>
-          <p className={cls.sub}>Create briefs, turn them into courses, and add modules.</p>
+          <h1 className="text-2xl font-semibold">LearnFlow — Dashboard</h1>
+          <p className="mt-1 text-sm text-neutral-400">
+            Create briefs, turn them into courses, and add modules.
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className={cls.chip}>{userLabel}</div>
-          <button onClick={loadAll} className={cls.headerBtn} aria-label="Refresh">
+          <button
+            onClick={loadAll}
+            className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800"
+            aria-label="Refresh"
+          >
             Refresh
           </button>
-          <button onClick={onLogout} className={cls.headerBtn} aria-label="Logout">
-            Logout
-          </button>
+          <UserMenu />
         </div>
       </header>
 
@@ -381,7 +412,9 @@ export default function DashboardClient() {
       {/* Briefs */}
       <Card
         title="Your Briefs"
-        right={<span className="text-sm text-neutral-400">{briefsCount} items</span>}
+        right={
+          <span className="text-sm text-neutral-400">{briefsCount} items</span>
+        }
       >
         {loading ? (
           <div className="text-sm text-neutral-400">Loading…</div>
@@ -409,7 +442,9 @@ export default function DashboardClient() {
                         disabled={disabled || committingId === b.id}
                         className={cls.btnGhost}
                       >
-                        {committingId === b.id ? 'Committing…' : 'Commit → Course'}
+                        {committingId === b.id
+                          ? 'Committing…'
+                          : 'Commit → Course'}
                       </button>
                     </div>
                   </div>
@@ -433,10 +468,15 @@ export default function DashboardClient() {
               const isExpanded = expandedCourseId === c.id
               const modules = modulesByCourse[c.id] || []
               return (
-                <li key={c.id} className="rounded-lg border border-neutral-800 bg-neutral-900/60">
+                <li
+                  key={c.id}
+                  className="rounded-lg border border-neutral-800 bg-neutral-900/60"
+                >
                   <div className="flex items-center justify-between p-3">
                     <div>
-                      <div className="font-medium text-neutral-100">{c.title}</div>
+                      <div className="font-medium text-neutral-100">
+                        {c.title}
+                      </div>
                       <div className="text-xs text-neutral-400">
                         {c.status} · {c.visibility} · updated {humanTime}
                       </div>
@@ -446,7 +486,8 @@ export default function DashboardClient() {
                         onClick={async () => {
                           const next = isExpanded ? null : c.id
                           setExpandedCourseId(next)
-                          if (next && !modulesByCourse[c.id]) await loadModules(c.id)
+                          if (next && !modulesByCourse[c.id])
+                            await loadModules(c.id)
                         }}
                         className={cls.btnGhost}
                       >
@@ -461,9 +502,13 @@ export default function DashboardClient() {
                       <div className={cls.divider} />
                       <div className="p-3">
                         <div className="mb-2 flex items-center justify-between">
-                          <div className="text-sm font-medium text-neutral-200">Modules</div>
+                          <div className="text-sm font-medium text-neutral-200">
+                            Modules
+                          </div>
                           {loadingModulesFor === c.id && (
-                            <div className="text-xs text-neutral-400">Loading…</div>
+                            <div className="text-xs text-neutral-400">
+                              Loading…
+                            </div>
                           )}
                         </div>
 
@@ -474,13 +519,18 @@ export default function DashboardClient() {
                             placeholder="Module title (e.g., Basics)"
                             value={newModuleTitleByCourse[c.id] || ''}
                             onChange={(e) =>
-                              setNewModuleTitleByCourse((prev) => ({ ...prev, [c.id]: e.target.value }))
+                              setNewModuleTitleByCourse((prev) => ({
+                                ...prev,
+                                [c.id]: e.target.value,
+                              }))
                             }
                             aria-label="Module title"
                           />
                           <button
                             onClick={() => createModule(c.id)}
-                            disabled={!(newModuleTitleByCourse[c.id] || '').trim()}
+                            disabled={
+                              !(newModuleTitleByCourse[c.id] || '').trim()
+                            }
                             className={cls.btnPrimary}
                           >
                             Add Module
@@ -491,20 +541,26 @@ export default function DashboardClient() {
                         {Array.isArray(modules) && modules.length > 0 ? (
                           <ul className="grid gap-2">
                             {modules.map((m) => (
-                              <li key={m.id} className="flex items-center justify-between rounded border border-neutral-800 p-2">
+                              <li
+                                key={m.id}
+                                className="flex items-center justify-between rounded border border-neutral-800 p-2"
+                              >
                                 <div>
                                   <div className="font-medium text-neutral-100">
                                     {m.position}. {m.title}
                                   </div>
                                   <div className="text-xs text-neutral-400">
-                                    {m.status} · updated {new Date(m.updated_at).toLocaleString()}
+                                    {m.status} · updated{' '}
+                                    {new Date(m.updated_at).toLocaleString()}
                                   </div>
                                 </div>
                               </li>
                             ))}
                           </ul>
                         ) : (
-                          <div className="text-sm text-neutral-400">No modules yet.</div>
+                          <div className="text-sm text-neutral-400">
+                            No modules yet.
+                          </div>
                         )}
                       </div>
                     </>
