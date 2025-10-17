@@ -72,7 +72,7 @@ export const courseModules = pgTable(
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     // (Later) goals: jsonb("goals"),
     // (Later) estimatedMinutes: integer("estimated_minutes"),
   },
@@ -100,6 +100,7 @@ export const lessons = pgTable(
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
     // (Later) outcomes: jsonb("outcomes"),
     // (Later) assets: jsonb("assets"),
@@ -128,6 +129,7 @@ export const courseBriefs = pgTable(
     version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
     committedCourseId: uuid("committed_course_id")
       .references(() => courses.id, { onDelete: "set null" }),
