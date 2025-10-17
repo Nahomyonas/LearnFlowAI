@@ -102,7 +102,7 @@ export default function DashboardClient() {
       const res = await fetch('/api/course-modules', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ course_id: courseId, title }),
+        body: JSON.stringify({ courseId, title }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok)
