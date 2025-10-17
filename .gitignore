@@ -21,6 +21,7 @@ drizzle.config.ts.bak
 .env.test.local
 .env.production.local
 .env.example
+.env.test
 
 # logs
 npm-debug.log*
