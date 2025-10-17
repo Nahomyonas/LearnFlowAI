@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession, signOut } from '@/lib/auth-client'
 
-/* =========================
-   Types (keep close to usage)
-   ========================= */
 type BriefSource = 'manual' | 'bot'
 type Status = 'draft' | 'published' | 'archived'
 
@@ -41,15 +40,38 @@ type Module = {
   updated_at: string
 }
 
-/* =========================
-   Small API helpers (typed)
-   ========================= */
+/* ================
+   Style tokens
+   ================ */
+const cls = {
+  page: 'mx-auto max-w-6xl p-6 space-y-8 text-neutral-100',
+  headerBtn:
+    'rounded-lg border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 transition-colors',
+  chip: 'rounded-full border border-neutral-700/70 px-3 py-1 text-sm text-neutral-300',
+  sectionCard:
+    'rounded-2xl border border-neutral-800 bg-neutral-900 p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset,0_8px_40px_-12px_rgba(0,0,0,0.7)]',
+  h1: 'text-2xl font-semibold',
+  h2: 'text-lg font-medium text-neutral-100',
+  sub: 'mt-1 text-sm text-neutral-400',
+  input:
+    'w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 placeholder:text-neutral-500 outline-none focus:ring-2 focus:ring-indigo-500/50',
+  select:
+    'w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:ring-2 focus:ring-indigo-500/50',
+  btnPrimary:
+    'rounded-md bg-indigo-500 px-4 py-2 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
+  btnGhost:
+    'rounded-md border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
+  listItem: 'rounded-lg border border-neutral-800 p-3 bg-neutral-900/60',
+  divider: 'h-px bg-neutral-800',
+}
+
+/* ================
+   API helpers
+   ================ */
 const api = {
   briefs: {
     list: async (limit = 20) => {
-      const res = await fetch(`/api/course-briefs?limit=${limit}`, {
-        cache: 'no-store',
-      })
+      const res = await fetch(`/api/course-briefs?limit=${limit}`, { cache: 'no-store' })
       const j = await res.json()
       if (!res.ok) throw new Error(j?.error?.message || 'Failed to load briefs')
       return (j.items ?? []) as Brief[]
@@ -64,22 +86,15 @@ const api = {
       if (!res.ok) throw new Error(j?.error?.message || 'Failed to create brief')
     },
     commit: async (id: string) => {
-      const res = await fetch(`/api/course-briefs/${id}/commit`, {
-        method: 'POST',
-      })
+      const res = await fetch(`/api/course-briefs/${id}/commit`, { method: 'POST' })
       const j = await res.json().catch(() => ({}))
       if (!res.ok)
-        throw new Error(
-          j?.error?.message ||
-            (res.status === 409 ? 'Already committed' : 'Commit failed'),
-        )
+        throw new Error(j?.error?.message || (res.status === 409 ? 'Already committed' : 'Commit failed'))
     },
   },
   courses: {
     list: async (limit = 20) => {
-      const res = await fetch(`/api/courses?limit=${limit}`, {
-        cache: 'no-store',
-      })
+      const res = await fetch(`/api/courses?limit=${limit}`, { cache: 'no-store' })
       const j = await res.json()
       if (!res.ok) throw new Error(j?.error?.message || 'Failed to load courses')
       return (j.items ?? []) as Course[]
@@ -96,12 +111,9 @@ const api = {
   },
   modules: {
     listByCourse: async (courseId: string) => {
-      const res = await fetch(`/api/course-modules?course_id=${courseId}`, {
-        cache: 'no-store',
-      })
+      const res = await fetch(`/api/course-modules?course_id=${courseId}`, { cache: 'no-store' })
       const j = await res.json()
-      if (!res.ok)
-        throw new Error(j?.error?.message || 'Failed to load modules')
+      if (!res.ok) throw new Error(j?.error?.message || 'Failed to load modules')
       return (j.items ?? []) as Module[]
     },
     create: async (payload: { courseId: string; title: string }) => {
@@ -116,43 +128,82 @@ const api = {
   },
 }
 
-/* =========================
-   UI helpers
-   ========================= */
-function Banner({ children }: { children: React.ReactNode }) {
+/* ================
+   Small UI bits
+   ================ */
+function Banner({
+  kind = 'info',
+  children,
+}: {
+  kind?: 'info' | 'error'
+  children: React.ReactNode
+}) {
+  const base = 'rounded-md px-3 py-2 text-sm'
+  const map = {
+    info: 'border border-indigo-500/20 bg-indigo-500/10 text-indigo-200',
+    error: 'border border-rose-500/20 bg-rose-500/10 text-rose-200',
+  }
+  return <div className={`${base} ${map[kind]}`}>{children}</div>
+}
+
+function Card({
+  title,
+  subtitle,
+  right,
+  children,
+  className = '',
+}: {
+  title?: string
+  subtitle?: string
+  right?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+    <section className={`${cls.sectionCard} ${className}`}>
+      {(title || right) && (
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            {title && <h2 className={cls.h2}>{title}</h2>}
+            {subtitle && <p className={cls.sub}>{subtitle}</p>}
+          </div>
+          {right}
+        </div>
+      )}
       {children}
-    </div>
+    </section>
   )
 }
 
 export default function DashboardClient() {
   const [briefs, setBriefs] = useState<Brief[]>([])
   const [courses, setCourses] = useState<Course[]>([])
-
-  // global UX status
   const [message, setMessage] = useState<string | null>(null)
+  const [messageKind, setMessageKind] = useState<'info' | 'error'>('info')
   const [loading, setLoading] = useState(false)
 
-  // forms
   const [newBriefTopic, setNewBriefTopic] = useState('')
   const [newBriefSource, setNewBriefSource] = useState<BriefSource>('manual')
   const [newCourseTitle, setNewCourseTitle] = useState('')
 
-  // modules state (per course)
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null)
-  const [modulesByCourse, setModulesByCourse] = useState<Record<string, Module[]>>(
-    {},
-  )
-  const [newModuleTitleByCourse, setNewModuleTitleByCourse] = useState<
-    Record<string, string>
-  >({})
+  const [modulesByCourse, setModulesByCourse] = useState<Record<string, Module[]>>({})
+  const [newModuleTitleByCourse, setNewModuleTitleByCourse] = useState<Record<string, string>>({})
   const [loadingModulesFor, setLoadingModulesFor] = useState<string | null>(null)
   const [committingId, setCommittingId] = useState<string | null>(null)
 
-  // avoid race on initial load
+  const { data: session } = useSession()
+  const router = useRouter()
   const loadAbort = useRef<AbortController | null>(null)
+
+  function setInfo(m: string) {
+    setMessageKind('info')
+    setMessage(m)
+  }
+  function setError(m: string) {
+    setMessageKind('error')
+    setMessage(m)
+  }
 
   async function loadAll() {
     setMessage(null)
@@ -161,15 +212,12 @@ export default function DashboardClient() {
     const ac = new AbortController()
     loadAbort.current = ac
     try {
-      const [b, c] = await Promise.all([
-        api.briefs.list(20),
-        api.courses.list(20),
-      ])
+      const [b, c] = await Promise.all([api.briefs.list(20), api.courses.list(20)])
       if (ac.signal.aborted) return
       setBriefs(b)
       setCourses(c)
     } catch (e: any) {
-      if (!ac.signal.aborted) setMessage(e?.message ?? 'Load failed')
+      if (!ac.signal.aborted) setError(e?.message ?? 'Load failed')
     } finally {
       if (!ac.signal.aborted) setLoading(false)
     }
@@ -182,7 +230,7 @@ export default function DashboardClient() {
       const items = await api.modules.listByCourse(courseId)
       setModulesByCourse((prev) => ({ ...prev, [courseId]: items }))
     } catch (e: any) {
-      setMessage(e?.message ?? 'Error loading modules')
+      setError(e?.message ?? 'Error loading modules')
     } finally {
       setLoadingModulesFor(null)
     }
@@ -194,9 +242,9 @@ export default function DashboardClient() {
       await api.briefs.create({ source: newBriefSource, topic: newBriefTopic })
       setNewBriefTopic('')
       await loadAll()
-      setMessage('Brief created ✅')
+      setInfo('Brief created ✅')
     } catch (e: any) {
-      setMessage(e?.message ?? 'Error creating brief')
+      setError(e?.message ?? 'Error creating brief')
     }
   }
 
@@ -206,9 +254,9 @@ export default function DashboardClient() {
       await api.courses.create({ title: newCourseTitle })
       setNewCourseTitle('')
       await loadAll()
-      setMessage('Course created ✅')
+      setInfo('Course created ✅')
     } catch (e: any) {
-      setMessage(e?.message ?? 'Error creating course')
+      setError(e?.message ?? 'Error creating course')
     }
   }
 
@@ -218,9 +266,9 @@ export default function DashboardClient() {
     try {
       await api.briefs.commit(id)
       await loadAll()
-      setMessage('Committed brief → course ✅')
+      setInfo('Committed brief → course ✅')
     } catch (e: any) {
-      setMessage(e?.message ?? 'Commit error')
+      setError(e?.message ?? 'Commit error')
     } finally {
       setCommittingId(null)
     }
@@ -234,9 +282,18 @@ export default function DashboardClient() {
       await api.modules.create({ courseId, title })
       setNewModuleTitleByCourse((prev) => ({ ...prev, [courseId]: '' }))
       await loadModules(courseId)
-      setMessage('Module created ✅')
+      setInfo('Module created ✅')
     } catch (e: any) {
-      setMessage(e?.message ?? 'Error creating module')
+      setError(e?.message ?? 'Error creating module')
+    }
+  }
+
+  async function onLogout() {
+    try {
+      await signOut()
+      router.replace('/signin')
+    } catch (e: any) {
+      setError(e?.message ?? 'Logout failed')
     }
   }
 
@@ -247,129 +304,128 @@ export default function DashboardClient() {
 
   const coursesCount = useMemo(() => courses.length, [courses])
   const briefsCount = useMemo(() => briefs.length, [briefs])
+  const userLabel =
+    session?.user?.name || session?.user?.email || (session ? 'Signed in' : 'Guest')
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 p-6">
+    <div className={cls.page}>
+      {/* Header */}
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">LearnFlow — Dashboard</h1>
-        <button
-          onClick={loadAll}
-          className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50"
-          aria-label="Refresh"
-        >
-          Refresh
-        </button>
+        <div>
+          <h1 className={cls.h1}>LearnFlow — Dashboard</h1>
+          <p className={cls.sub}>Create briefs, turn them into courses, and add modules.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={cls.chip}>{userLabel}</div>
+          <button onClick={loadAll} className={cls.headerBtn} aria-label="Refresh">
+            Refresh
+          </button>
+          <button onClick={onLogout} className={cls.headerBtn} aria-label="Logout">
+            Logout
+          </button>
+        </div>
       </header>
 
-      {message && <Banner>{message}</Banner>}
+      {message && <Banner kind={messageKind}>{message}</Banner>}
 
-      {/* Create Brief */}
-      <section className="rounded-2xl border p-4">
-        <h2 className="mb-3 text-lg font-medium">New Brief</h2>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <select
-            className="w-full rounded-md border px-3 py-2 md:w-40"
-            value={newBriefSource}
-            onChange={(e) =>
-              setNewBriefSource(e.target.value as BriefSource)
-            }
-            aria-label="Brief source"
-          >
-            <option value="manual">manual</option>
-            <option value="bot">bot</option>
-          </select>
-          <input
-            className="w-full rounded-md border px-3 py-2"
-            placeholder="Topic (e.g., Intro to React)"
-            value={newBriefTopic}
-            onChange={(e) => setNewBriefTopic(e.target.value)}
-            aria-label="Brief topic"
-          />
-          <button
-            onClick={createBrief}
-            className="rounded-md bg-black px-4 py-2 text-white hover:opacity-90 disabled:opacity-40"
-            disabled={!newBriefTopic.trim()}
-          >
-            Create Brief
-          </button>
-        </div>
-      </section>
+      {/* Quick actions */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card title="New Brief">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <select
+              className={cls.select}
+              value={newBriefSource}
+              onChange={(e) => setNewBriefSource(e.target.value as BriefSource)}
+              aria-label="Brief source"
+            >
+              <option value="manual">manual</option>
+              <option value="bot">bot</option>
+            </select>
+            <input
+              className={cls.input}
+              placeholder="Topic (e.g., Intro to React)"
+              value={newBriefTopic}
+              onChange={(e) => setNewBriefTopic(e.target.value)}
+              aria-label="Brief topic"
+            />
+            <button
+              onClick={createBrief}
+              className={cls.btnPrimary}
+              disabled={!newBriefTopic.trim()}
+            >
+              Create Brief
+            </button>
+          </div>
+        </Card>
 
-      {/* Create Course (manual) */}
-      <section className="rounded-2xl border p-4">
-        <h2 className="mb-3 text-lg font-medium">New Course (Manual)</h2>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <input
-            className="w-full rounded-md border px-3 py-2"
-            placeholder="Title (e.g., React for Beginners)"
-            value={newCourseTitle}
-            onChange={(e) => setNewCourseTitle(e.target.value)}
-            aria-label="Course title"
-          />
-          <button
-            onClick={createCourse}
-            className="rounded-md bg-black px-4 py-2 text-white hover:opacity-90 disabled:opacity-40"
-            disabled={!newCourseTitle.trim()}
-          >
-            Create Course
-          </button>
-        </div>
-      </section>
+        <Card title="New Course (Manual)">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <input
+              className={cls.input}
+              placeholder="Title (e.g., React for Beginners)"
+              value={newCourseTitle}
+              onChange={(e) => setNewCourseTitle(e.target.value)}
+              aria-label="Course title"
+            />
+            <button
+              onClick={createCourse}
+              className={cls.btnPrimary}
+              disabled={!newCourseTitle.trim()}
+            >
+              Create Course
+            </button>
+          </div>
+        </Card>
+      </div>
 
-      {/* Briefs List */}
-      <section className="rounded-2xl border p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-medium">Your Briefs</h2>
-          <span className="text-sm text-gray-500">{briefsCount} items</span>
-        </div>
+      {/* Briefs */}
+      <Card
+        title="Your Briefs"
+        right={<span className="text-sm text-neutral-400">{briefsCount} items</span>}
+      >
         {loading ? (
-          <div className="text-sm text-gray-500">Loading…</div>
+          <div className="text-sm text-neutral-400">Loading…</div>
         ) : briefs.length === 0 ? (
-          <div className="text-sm text-gray-500">No briefs yet.</div>
+          <div className="text-sm text-neutral-400">No briefs yet.</div>
         ) : (
           <ul className="grid gap-3">
             {briefs.map((b) => {
               const humanTime = new Date(b.updated_at).toLocaleString()
               const disabled = b.mode_state === 'committed'
               return (
-                <li
-                  key={b.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div>
-                    <div className="font-medium">
-                      {b.topic || '(untitled brief)'}
+                <li key={b.id} className={cls.listItem}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-neutral-100">
+                        {b.topic || '(untitled brief)'}
+                      </div>
+                      <div className="text-xs text-neutral-400">
+                        {b.source} · {b.mode_state} · updated {humanTime}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {b.source} · {b.mode_state} · updated {humanTime}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => commitBrief(b.id)}
+                        disabled={disabled || committingId === b.id}
+                        className={cls.btnGhost}
+                      >
+                        {committingId === b.id ? 'Committing…' : 'Commit → Course'}
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => commitBrief(b.id)}
-                      disabled={disabled || committingId === b.id}
-                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-40"
-                    >
-                      {committingId === b.id ? 'Committing…' : 'Commit → Course'}
-                    </button>
                   </div>
                 </li>
               )
             })}
           </ul>
         )}
-      </section>
+      </Card>
 
-      {/* Courses List */}
-      <section className="rounded-2xl border p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-medium">Your Courses</h2>
-          <span className="text-sm text-gray-500">{coursesCount} items</span>
-        </div>
+      {/* Courses */}
+      <Card title="Your Courses">
         {loading ? (
-          <div className="text-sm text-gray-500">Loading…</div>
+          <div className="text-sm text-neutral-400">Loading…</div>
         ) : courses.length === 0 ? (
-          <div className="text-sm text-gray-500">No courses yet.</div>
+          <div className="text-sm text-neutral-400">No courses yet.</div>
         ) : (
           <ul className="grid gap-3">
             {courses.map((c) => {
@@ -377,14 +433,11 @@ export default function DashboardClient() {
               const isExpanded = expandedCourseId === c.id
               const modules = modulesByCourse[c.id] || []
               return (
-                <li
-                  key={c.id}
-                  className="rounded-lg border p-3"
-                >
-                  <div className="flex items-center justify-between">
+                <li key={c.id} className="rounded-lg border border-neutral-800 bg-neutral-900/60">
+                  <div className="flex items-center justify-between p-3">
                     <div>
-                      <div className="font-medium">{c.title}</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="font-medium text-neutral-100">{c.title}</div>
+                      <div className="text-xs text-neutral-400">
                         {c.status} · {c.visibility} · updated {humanTime}
                       </div>
                     </div>
@@ -393,83 +446,75 @@ export default function DashboardClient() {
                         onClick={async () => {
                           const next = isExpanded ? null : c.id
                           setExpandedCourseId(next)
-                          if (next && !modulesByCourse[c.id]) {
-                            await loadModules(c.id)
-                          }
+                          if (next && !modulesByCourse[c.id]) await loadModules(c.id)
                         }}
-                        className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+                        className={cls.btnGhost}
                       >
                         {isExpanded ? 'Hide modules' : 'Show modules'}
                       </button>
-                      <div className="text-xs text-gray-500">/{c.slug}</div>
+                      <div className="text-xs text-neutral-500">/{c.slug}</div>
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="mt-3 w-full rounded-lg border p-3">
-                      <div className="mb-2 flex items-center justify-between">
-                        <div className="text-sm font-medium">Modules</div>
-                        {loadingModulesFor === c.id && (
-                          <div className="text-xs text-gray-500">Loading…</div>
+                    <>
+                      <div className={cls.divider} />
+                      <div className="p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <div className="text-sm font-medium text-neutral-200">Modules</div>
+                          {loadingModulesFor === c.id && (
+                            <div className="text-xs text-neutral-400">Loading…</div>
+                          )}
+                        </div>
+
+                        {/* New module */}
+                        <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center">
+                          <input
+                            className={cls.input}
+                            placeholder="Module title (e.g., Basics)"
+                            value={newModuleTitleByCourse[c.id] || ''}
+                            onChange={(e) =>
+                              setNewModuleTitleByCourse((prev) => ({ ...prev, [c.id]: e.target.value }))
+                            }
+                            aria-label="Module title"
+                          />
+                          <button
+                            onClick={() => createModule(c.id)}
+                            disabled={!(newModuleTitleByCourse[c.id] || '').trim()}
+                            className={cls.btnPrimary}
+                          >
+                            Add Module
+                          </button>
+                        </div>
+
+                        {/* Module list */}
+                        {Array.isArray(modules) && modules.length > 0 ? (
+                          <ul className="grid gap-2">
+                            {modules.map((m) => (
+                              <li key={m.id} className="flex items-center justify-between rounded border border-neutral-800 p-2">
+                                <div>
+                                  <div className="font-medium text-neutral-100">
+                                    {m.position}. {m.title}
+                                  </div>
+                                  <div className="text-xs text-neutral-400">
+                                    {m.status} · updated {new Date(m.updated_at).toLocaleString()}
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="text-sm text-neutral-400">No modules yet.</div>
                         )}
                       </div>
-
-                      {/* New module form */}
-                      <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center">
-                        <input
-                          className="w-full rounded-md border px-3 py-2 md:w-2/3"
-                          placeholder="Module title (e.g., Basics)"
-                          value={newModuleTitleByCourse[c.id] || ''}
-                          onChange={(e) =>
-                            setNewModuleTitleByCourse((prev) => ({
-                              ...prev,
-                              [c.id]: e.target.value,
-                            }))
-                          }
-                          aria-label="Module title"
-                        />
-                        <button
-                          onClick={() => createModule(c.id)}
-                          disabled={!(newModuleTitleByCourse[c.id] || '').trim()}
-                          className="rounded-md bg-black px-4 py-2 text-white hover:opacity-90 disabled:opacity-40"
-                        >
-                          Add Module
-                        </button>
-                      </div>
-
-                      {/* Module list */}
-                      {Array.isArray(modules) && modules.length > 0 ? (
-                        <ul className="grid gap-2">
-                          {modules.map((m) => (
-                            <li
-                              key={m.id}
-                              className="flex items-center justify-between rounded border p-2"
-                            >
-                              <div>
-                                <div className="font-medium">
-                                  {m.position}. {m.title}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {m.status} · updated{' '}
-                                  {new Date(m.updated_at).toLocaleString()}
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className="text-sm text-gray-500">
-                          No modules yet.
-                        </div>
-                      )}
-                    </div>
+                    </>
                   )}
                 </li>
               )
             })}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   )
 }
