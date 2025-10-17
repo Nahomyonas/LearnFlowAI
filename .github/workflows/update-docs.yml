@@ -1,0 +1,26 @@
+name: Update Docs on Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run update-docs script
+        run: pnpm tsx scripts/update-docs.ts
+      - name: Commit and push doc updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/CHANGELOG.md
+          git commit -m "chore: update docs changelog [ci skip]" || echo "No changes to commit"
+          git push
