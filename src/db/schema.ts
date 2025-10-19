@@ -58,6 +58,33 @@ export const lessonStatusEnum = pgEnum("lesson_status", [
   "archived",
 ]);
 
+export const visibilityEnum = pgEnum("visibility", ["private", "unlisted", "public"]);
+export const courseStatusEnum = pgEnum("course_status", ["draft", "published", "archived"]);
+
+export const courses = pgTable(
+  "courses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: text("owner_user_id").notNull(),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    summary: text("summary"),
+    goals: jsonb("goals").$type<string[] | null>().default(null),
+    visibility: visibilityEnum("visibility").notNull().default("private"),
+    status: courseStatusEnum("status").notNull().default("draft"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+    briefId: uuid("brief_id")
+      .references(() => courseBriefs.id, { onDelete: "set null" }),
+  },
+  (t) => ({
+    uniqSlug: uniqueIndex("uniq_courses_slug").on(t.slug),
+    uniqBriefId: uniqueIndex("uniq_courses_brief_id").on(t.briefId), 
+  })
+);
+
 export const courseModules = pgTable(
   "course_modules",
   {
@@ -149,32 +176,6 @@ export const briefEvents = pgTable("brief_events", {
   payload: jsonb("payload").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
-
-export const visibilityEnum = pgEnum("visibility", ["private", "unlisted", "public"]);
-export const courseStatusEnum = pgEnum("course_status", ["draft", "published", "archived"]);
-
-export const courses = pgTable(
-  "courses",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    ownerUserId: text("owner_user_id").notNull(),
-    title: text("title").notNull(),
-    slug: text("slug").notNull(),
-    summary: text("summary"),
-    visibility: visibilityEnum("visibility").notNull().default("private"),
-    status: courseStatusEnum("status").notNull().default("draft"),
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-
-    briefId: uuid("brief_id")
-      .references(() => courseBriefs.id, { onDelete: "set null" }),
-  },
-  (t) => ({
-    uniqSlug: uniqueIndex("uniq_courses_slug").on(t.slug),
-    uniqBriefId: uniqueIndex("uniq_courses_brief_id").on(t.briefId), 
-  })
-);
 
 /**
   * table relations 

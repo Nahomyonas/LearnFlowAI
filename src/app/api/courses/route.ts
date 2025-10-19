@@ -4,7 +4,7 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { courses } from "@/db/schema";
 import { requireUserId } from "@/lib/auth";
-import { CreateCourseSchema, ListCoursesQuerySchema}from "@/contracts/courses";
+import { CreateCourseSchema, goalsArray, ListCoursesQuerySchema}from "@/contracts/courses";
 import { slugify } from "@/lib/slug";
 
 
@@ -54,6 +54,7 @@ export async function GET(req: Request) {
       status: courses.status,
       visibility: courses.visibility,
       updated_at: courses.updatedAt,
+      goals: courses.goals
     })
     .from(courses)
     .where(where)
@@ -83,7 +84,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  const { title, summary } = parsed.data;
+  const { title, summary, goals } = parsed.data;
 
   // Generate unique slug (retry once with random suffix if needed)
   const baseSlug = slugify(title);
@@ -106,6 +107,7 @@ export async function POST(req: Request) {
       title,
       slug: finalSlug,
       summary: summary ?? null,
+      goals: goals ?? null,
       // visibility/status default in schema: private/draft
     })
     .returning({

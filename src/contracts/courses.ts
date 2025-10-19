@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const goalsArray = z.array(z.string().min(1)).min(1).optional()
+
 /**
  * POST /api/courses
  * Used when a user manually creates a new course (not from a brief)
@@ -7,6 +9,7 @@ import { z } from "zod";
 export const CreateCourseSchema = z.object({
   title: z.string().min(1, "Title is required").max(140, "Title too long"),
   summary: z.string().max(1000, "Summary too long").optional(),
+  goals: goalsArray,
 });
 
 export type CreateCourseInput = z.infer<typeof CreateCourseSchema>;
@@ -32,6 +35,7 @@ export const UpdateCourseSchema = z.object({
   summary: z.string().max(1000).optional(),
   status: z.enum(["draft", "published", "archived"]).optional(),
   visibility: z.enum(["private", "unlisted", "public"]).optional(),
+  goals: goalsArray,
 });
 
 export type UpdateCourseInput = z.infer<typeof UpdateCourseSchema>;

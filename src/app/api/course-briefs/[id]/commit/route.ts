@@ -37,6 +37,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const title = brief.topic ?? "Untitled Course";
   const baseSlug = slugify(title);
+  const goals = Array.isArray(brief.goals)
+  ? (brief.goals).map(String).filter(Boolean)
+  : null
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -58,6 +61,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
           slug: finalSlug,
           summary: brief.details ? String(brief.details).slice(0, 200) : null,
           briefId: brief.id,
+          goals: goals
           // visibility/status default via schema
         })
         .returning({ id: courses.id, status: courses.status });

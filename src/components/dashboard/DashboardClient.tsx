@@ -30,6 +30,7 @@ type Course = {
   status: Status
   visibility: 'private' | 'unlisted' | 'public'
   updated_at: string
+  goals?: string[] | null // ← add this
 }
 
 type Module = {
@@ -256,6 +257,11 @@ export default function DashboardClient() {
     null
   )
 
+  const [editingGoalsFor, setEditingGoalsFor] = useState<string | null>(null)
+  const [goalsDraftByCourse, setGoalsDraftByCourse] = useState<
+    Record<string, string>
+  >({})
+
   const { data: session } = useSession()
   const router = useRouter()
   const loadAbort = useRef<AbortController | null>(null)
@@ -379,6 +385,35 @@ export default function DashboardClient() {
       setInfo('Lesson created ✅')
     } catch (e: any) {
       setError(e?.message ?? 'Error creating lesson')
+    }
+  }
+
+  function startEditGoals(c: Course) {
+    setEditingGoalsFor(c.id)
+    const text = (c.goals ?? []).join('\n')
+    setGoalsDraftByCourse((prev) => ({ ...prev, [c.id]: text }))
+  }
+
+  async function saveGoals(courseId: string) {
+    setMessage(null)
+    try {
+      const text = goalsDraftByCourse[courseId] || ''
+      const goals = text
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const res = await fetch(`/api/courses/${courseId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ goals }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j?.error?.message || 'Failed to save goals')
+      setEditingGoalsFor(null)
+      await loadAll() // refresh courses
+      setInfo('Goals saved ✅')
+    } catch (e: any) {
+      setError(e?.message ?? 'Error saving goals')
     }
   }
 
@@ -578,7 +613,64 @@ export default function DashboardClient() {
                   {isExpanded && (
                     <>
                       <div className={cls.divider} />
-                      <div className="p-3">
+                      <div className="p-3 space-y-4">
+                        {/* GOALS EDITOR */}
+                        <div className="rounded border border-neutral-800 p-3">
+                          <div className="mb-2 flex items-center justify-between">
+                            <div className="text-sm font-medium text-neutral-200">
+                              Goals
+                            </div>
+                            {editingGoalsFor === c.id ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => saveGoals(c.id)}
+                                  className={cls.btnPrimary}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingGoalsFor(null)}
+                                  className={cls.btnGhost}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => startEditGoals(c)}
+                                className={cls.btnGhost}
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
+
+                          {editingGoalsFor === c.id ? (
+                            <textarea
+                              className="h-28 w-full rounded-md border border-neutral-700 bg-neutral-950 p-2 text-sm text-neutral-100 placeholder:text-neutral-500 outline-none focus:ring-2 focus:ring-indigo-500/50"
+                              placeholder="One goal per line (e.g., Understand JSX basics)"
+                              value={goalsDraftByCourse[c.id] || ''}
+                              onChange={(e) =>
+                                setGoalsDraftByCourse((prev) => ({
+                                  ...prev,
+                                  [c.id]: e.target.value,
+                                }))
+                              }
+                            />
+                          ) : Array.isArray(c.goals) && c.goals.length > 0 ? (
+                            <ul className="list-disc pl-5 text-sm text-neutral-200">
+                              {c.goals.map((g, i) => (
+                                <li key={i}>{g}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="text-sm text-neutral-400">
+                              No goals yet.
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Modules */}
                         <div className="mb-2 flex items-center justify-between">
                           <div className="text-sm font-medium text-neutral-200">
                             Modules
@@ -710,6 +802,8 @@ export default function DashboardClient() {
                       </div>
                     </>
                   )}
+
+                  
                 </li>
               )
             })}
