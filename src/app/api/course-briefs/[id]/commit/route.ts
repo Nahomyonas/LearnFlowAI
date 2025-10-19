@@ -9,13 +9,13 @@ import { slugify } from "@/lib/slug";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireUserId();
-  const briefId = params.id;
+  const {id} = await params;  // brief ID
 
   // 1) Load brief with owner guard
   const [brief] = await db
     .select()
     .from(courseBriefs)
-    .where(and(eq(courseBriefs.id, briefId), eq(courseBriefs.ownerUserId, userId)))
+    .where(and(eq(courseBriefs.id, id), eq(courseBriefs.ownerUserId, userId)))
     .limit(1);
 
   if (!brief) {

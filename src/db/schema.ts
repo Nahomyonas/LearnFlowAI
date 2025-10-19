@@ -135,7 +135,6 @@ export const courseBriefs = pgTable(
       .references(() => courses.id, { onDelete: "set null" }),
   },
   (t) => ({
-    byOwnerState: uniqueIndex("idx_course_briefs_owner_state").on(t.ownerUserId, t.modeState),
     uniqCommitted: uniqueIndex("uniq_course_briefs_committed_course_id").on(t.committedCourseId),
   })
 );
