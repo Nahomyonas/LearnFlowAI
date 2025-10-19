@@ -42,6 +42,7 @@ export default function UserMenu() {
     }
   }, [open])
 
+  
   return (
     <div className="relative">
       <button

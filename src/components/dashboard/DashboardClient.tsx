@@ -41,6 +41,15 @@ type Module = {
   updated_at: string
 }
 
+type Lesson = {
+  id: string
+  moduleId: string
+  title: string
+  status: Status
+  position: number
+  updated_at: string
+}
+
 /* ================
    Style tokens
    ================ */
@@ -143,6 +152,28 @@ const api = {
         throw new Error(j?.error?.message || 'Failed to create module')
     },
   },
+  lessons: {
+    listByModule: async (moduleId: string) => {
+      const res = await fetch(`/api/lessons?module_id=${moduleId}`, {
+        cache: 'no-store',
+      })
+      const j = await res.json()
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to load lessons')
+      return (j.items ?? []) as Lesson[]
+    },
+    create: async (payload: { moduleId: string; title: string }) => {
+      const res = await fetch('/api/lessons', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to create lesson')
+      return j as Lesson
+    },
+  },
 }
 
 /* ================
@@ -214,6 +245,16 @@ export default function DashboardClient() {
     null
   )
   const [committingId, setCommittingId] = useState<string | null>(null)
+
+  const [lessonsByModule, setLessonsByModule] = useState<
+    Record<string, Lesson[]>
+  >({})
+  const [newLessonTitleByModule, setNewLessonTitleByModule] = useState<
+    Record<string, string>
+  >({})
+  const [loadingLessonsFor, setLoadingLessonsFor] = useState<string | null>(
+    null
+  )
 
   const { data: session } = useSession()
   const router = useRouter()
@@ -311,6 +352,33 @@ export default function DashboardClient() {
       setInfo('Module created ✅')
     } catch (e: any) {
       setError(e?.message ?? 'Error creating module')
+    }
+  }
+
+  async function loadLessons(moduleId: string) {
+    setLoadingLessonsFor(moduleId)
+    setMessage(null)
+    try {
+      const items = await api.lessons.listByModule(moduleId)
+      setLessonsByModule((prev) => ({ ...prev, [moduleId]: items }))
+    } catch (e: any) {
+      setError(e?.message ?? 'Error loading lessons')
+    } finally {
+      setLoadingLessonsFor(null)
+    }
+  }
+
+  async function createLesson(moduleId: string) {
+    setMessage(null)
+    const title = (newLessonTitleByModule[moduleId] || '').trim()
+    if (!title) return
+    try {
+      await api.lessons.create({ moduleId, title })
+      setNewLessonTitleByModule((prev) => ({ ...prev, [moduleId]: '' }))
+      await loadLessons(moduleId)
+      setInfo('Lesson created ✅')
+    } catch (e: any) {
+      setError(e?.message ?? 'Error creating lesson')
     }
   }
 
@@ -486,13 +554,23 @@ export default function DashboardClient() {
                         onClick={async () => {
                           const next = isExpanded ? null : c.id
                           setExpandedCourseId(next)
-                          if (next && !modulesByCourse[c.id])
+                          if (next && !modulesByCourse[c.id]) {
                             await loadModules(c.id)
+                          }
+                          // after modules are loaded, fetch lessons for each module once
+                          const mods = modulesByCourse[c.id] || []
+                          for (const m of mods) {
+                            if (!lessonsByModule[m.id]) {
+                              // fire-and-forget; if you prefer serial, await inside loop
+                              loadLessons(m.id)
+                            }
+                          }
                         }}
                         className={cls.btnGhost}
                       >
                         {isExpanded ? 'Hide modules' : 'Show modules'}
                       </button>
+
                       <div className="text-xs text-neutral-500">/{c.slug}</div>
                     </div>
                   </div>
@@ -553,6 +631,73 @@ export default function DashboardClient() {
                                     {m.status} · updated{' '}
                                     {new Date(m.updated_at).toLocaleString()}
                                   </div>
+                                </div>
+                                {/* Lessons block */}
+                                <div className="mt-2 rounded border border-neutral-800 p-2">
+                                  <div className="mb-2 flex items-center justify-between">
+                                    <div className="text-xs font-medium text-neutral-300">
+                                      Lessons
+                                    </div>
+                                    {loadingLessonsFor === m.id && (
+                                      <div className="text-xs text-neutral-400">
+                                        Loading…
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* New lesson */}
+                                  <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-center">
+                                    <input
+                                      className={cls.input}
+                                      placeholder="Lesson title (e.g., Introduction)"
+                                      value={newLessonTitleByModule[m.id] || ''}
+                                      onChange={(e) =>
+                                        setNewLessonTitleByModule((prev) => ({
+                                          ...prev,
+                                          [m.id]: e.target.value,
+                                        }))
+                                      }
+                                      aria-label="Lesson title"
+                                    />
+                                    <button
+                                      onClick={() => createLesson(m.id)}
+                                      disabled={
+                                        !(
+                                          newLessonTitleByModule[m.id] || ''
+                                        ).trim()
+                                      }
+                                      className={cls.btnPrimary}
+                                    >
+                                      Add Lesson
+                                    </button>
+                                  </div>
+
+                                  {/* List lessons */}
+                                  {Array.isArray(lessonsByModule[m.id]) &&
+                                  lessonsByModule[m.id]!.length > 0 ? (
+                                    <ul className="grid gap-1">
+                                      {lessonsByModule[m.id]!.map((l) => (
+                                        <li
+                                          key={l.id}
+                                          className="flex items-center justify-between rounded border border-neutral-800 p-2"
+                                        >
+                                          <div className="text-sm text-neutral-200">
+                                            {l.position}. {l.title}
+                                          </div>
+                                          <div className="text-xs text-neutral-500">
+                                            {l.status} · updated{' '}
+                                            {new Date(
+                                              l.updated_at
+                                            ).toLocaleString()}
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <div className="text-sm text-neutral-400">
+                                      No lessons yet.
+                                    </div>
+                                  )}
                                 </div>
                               </li>
                             ))}
