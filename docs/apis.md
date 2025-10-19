@@ -31,10 +31,12 @@ This document describes the main API endpoints for LearnFlowAI.
 ## Health
 - `GET /api/db-health` — Check database connectivity.
 
-## Lessons (planned)
-- `POST /api/lessons` — Create a lesson for a module.
-- `GET /api/lessons?module_id=...` — List lessons for a module.
-- `GET/PATCH/DELETE /api/lessons/[id]` — Manage individual lessons.
+## Lessons
+- `GET /api/lessons?module_id=...` — List lessons for a module, ordered by position. Supports limit and offset pagination.
+- `POST /api/lessons` — Create a lesson for a module. Requires moduleId and title. Content defaults to empty object if not provided. Server auto-assigns position (max+1).
+- `GET /api/lessons/[id]` — Get details for a specific lesson (planned).
+- `PATCH /api/lessons/[id]` — Update a lesson (planned).
+- `DELETE /api/lessons/[id]` — Soft-delete a lesson (planned).
 
 ---
 All endpoints require authentication unless otherwise noted. Most endpoints support soft-delete filtering (`deletedAt IS NULL`).

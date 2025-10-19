@@ -45,15 +45,21 @@ LearnFlowAI uses Drizzle ORM for schema management. Main tables:
 - `deletedAt`: timestamp, nullable
 - `createdAt`, `updatedAt`: timestamps
 
-## lessons (planned)
+## lessons
 - `id`: UUID, primary key
 - `moduleId`: UUID, FK to modules
 - `title`: string
-- `content`: jsonb
-- `position`: integer
-- `status`: enum
-- `deletedAt`: timestamp, nullable
+- `content`: jsonb, NOT NULL (defaults to `{}` if not provided)
+- `position`: integer, auto-computed as max+1 within module
+- `status`: enum ('draft', 'published', 'archived')
+- `readingTimeMinutes`: integer, optional
+- `deletedAt`: timestamp, nullable (soft-delete)
 - `createdAt`, `updatedAt`: timestamps
+
+**Relations:**
+- Each lesson belongs to one module
+- Lessons are ordered by position within a module
+- Ownership is validated through module → course → ownerUserId chain
 
 ---
 All tables use soft-delete (`deletedAt`). Relations are defined using Drizzle's `relations()` API.
