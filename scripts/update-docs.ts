@@ -29,6 +29,13 @@ const changedFiles = run(`git show --name-only --pretty=format:"" ${commitHash}`
   .split('\n')
   .filter(Boolean);
 
+// Only update docs for important commits
+const important = /feat|fix|schema|api|docs/i.test(commitMsg);
+if (!important) {
+  console.log('No important changes detected, skipping doc update.');
+  process.exit(0);
+}
+
 // Example: If any API or schema files changed, update docs
 const apiChanged = changedFiles.some(f => f.startsWith('src/app/api/'));
 const schemaChanged = changedFiles.some(f => f.startsWith('src/db/schema'));
