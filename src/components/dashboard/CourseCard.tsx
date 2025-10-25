@@ -3,41 +3,59 @@ import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
 import { Clock, BookOpen, BarChart } from "lucide-react";
 
-interface CourseCardProps {
+type Course = {
+  id: string;
   title: string;
-  description: string;
-  progress: number;
-  totalLessons: number;
-  completedLessons: number;
-  estimatedTime: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  color: string;
+  slug: string;
+  status: "draft" | "published" | "archived";
+  visibility: "private" | "unlisted" | "public";
+  updated_at: string;
+  goals?: string[] | null;
+};
+
+interface CourseCardProps {
+  course: Course;
 }
 
-export function CourseCard({
-  title,
-  description,
-  progress,
-  totalLessons,
-  completedLessons,
-  estimatedTime,
-  difficulty,
-  color,
-}: CourseCardProps) {
-  const difficultyColors = {
-    Beginner: "bg-green-100 text-green-700",
-    Intermediate: "bg-yellow-100 text-yellow-700",
-    Advanced: "bg-red-100 text-red-700",
+export function CourseCard({ course }: CourseCardProps) {
+  const { title, slug, status, goals } = course;
+
+  const statusColors = {
+    draft: "bg-gray-100 text-gray-700",
+    published: "bg-green-100 text-green-700",
+    archived: "bg-orange-100 text-orange-700",
   };
+
+  // Pick a gradient based on first letter of title for visual variety
+  const gradients = [
+    "bg-gradient-to-br from-blue-500 to-blue-600",
+    "bg-gradient-to-br from-purple-500 to-purple-600",
+    "bg-gradient-to-br from-pink-500 to-pink-600",
+    "bg-gradient-to-br from-orange-500 to-orange-600",
+    "bg-gradient-to-br from-green-500 to-green-600",
+  ];
+  const colorIndex = title.charCodeAt(0) % gradients.length;
+  const gradient = gradients[colorIndex];
+
+  // Placeholder values until we have user progress (Issue #17)
+  const progress = 0;
+  const totalLessons = 0;
+  const completedLessons = 0;
+  const estimatedTime = "Not started";
+
+  // Use first goal as description, or show status
+  const description = goals && goals.length > 0 
+    ? goals[0] 
+    : `${status} course - /${slug}`;
 
   return (
     <Card className="hover:shadow-lg transition-shadow cursor-pointer">
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div className={`p-3 rounded-lg ${color} mb-3`}>
+          <div className={`p-3 rounded-lg ${gradient} mb-3`}>
             <BookOpen className="h-6 w-6 text-white" />
           </div>
-          <Badge className={difficultyColors[difficulty]}>{difficulty}</Badge>
+          <Badge className={statusColors[status]}>{status}</Badge>
         </div>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>

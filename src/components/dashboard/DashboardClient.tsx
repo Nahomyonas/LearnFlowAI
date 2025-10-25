@@ -6,61 +6,61 @@ import { CourseCard } from "@/components/dashboard/CourseCard";
 import { Button } from "@/components/dashboard/ui/button";
 import { Plus, Sparkles } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
+import { useState, useEffect } from "react";
+
+type Status = 'draft' | 'published' | 'archived'
+
+type Course = {
+  id: string
+  title: string
+  slug: string
+  status: Status
+  visibility: 'private' | 'unlisted' | 'public'
+  updated_at: string
+  goals?: string[] | null // ← add this
+}
+
+
+/* ================
+   API helpers
+   ================ */
+const api = {
+  courses: {
+    list: async (limit = 20) => {
+      const res = await fetch(`/api/courses?limit=${limit}`, {
+        cache: 'no-store',
+      })
+      const j = await res.json()
+      if (!res.ok)
+        throw new Error(j?.error?.message || 'Failed to load courses')
+      return (j.items ?? []) as Course[]
+    },
+  }
+}
 
 export default function DashboardClient() {
   const { data: session } = useSession();
-  const courses = [
-    {
-      title: "Advanced JavaScript Patterns",
-      description: "Master modern JavaScript design patterns and best practices",
-      progress: 68,
-      totalLessons: 24,
-      completedLessons: 16,
-      estimatedTime: "2h 30m left",
-      difficulty: "Advanced" as const,
-      color: "bg-gradient-to-br from-blue-500 to-blue-600",
-    },
-    {
-      title: "Introduction to Machine Learning",
-      description: "Learn the fundamentals of ML and build your first models",
-      progress: 35,
-      totalLessons: 18,
-      completedLessons: 6,
-      estimatedTime: "5h 20m left",
-      difficulty: "Intermediate" as const,
-      color: "bg-gradient-to-br from-purple-500 to-purple-600",
-    },
-    {
-      title: "UI/UX Design Principles",
-      description: "Create beautiful and user-friendly interfaces",
-      progress: 92,
-      totalLessons: 12,
-      completedLessons: 11,
-      estimatedTime: "30m left",
-      difficulty: "Beginner" as const,
-      color: "bg-gradient-to-br from-pink-500 to-pink-600",
-    },
-    {
-      title: "Data Structures & Algorithms",
-      description: "Build a strong foundation in computer science fundamentals",
-      progress: 45,
-      totalLessons: 30,
-      completedLessons: 13,
-      estimatedTime: "8h 15m left",
-      difficulty: "Advanced" as const,
-      color: "bg-gradient-to-br from-orange-500 to-orange-600",
-    },
-    {
-      title: "Digital Marketing Essentials",
-      description: "Learn SEO, content marketing, and social media strategies",
-      progress: 20,
-      totalLessons: 15,
-      completedLessons: 3,
-      estimatedTime: "6h 40m left",
-      difficulty: "Beginner" as const,
-      color: "bg-gradient-to-br from-green-500 to-green-600",
-    },
-  ];
+
+  const [courses, setCourses] = useState<Course[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  async function loadCourses() {
+    setLoading(true)
+    setError(null)
+    try {
+      const items = await api.courses.list(20)
+      setCourses(items)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load courses')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadCourses()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -95,11 +95,37 @@ export default function DashboardClient() {
             <div className="mb-6">
               <h3 className="text-gray-900 mb-4">My Learning Paths</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courses.map((course, index) => (
-                <CourseCard key={index} {...course} />
-              ))}
-            </div>
+            
+            {error && (
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-64 rounded-lg border bg-white animate-pulse" />
+                ))}
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
+                <p className="text-gray-600 mb-4">No courses yet. Create your first course to get started!</p>
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Create Your First Course
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {courses.map((course) => (
+                  <CourseCard key={course.id} course={course} />
+                ))}
+              </div>
+            )}
 
             {/* Stats Overview */}
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
