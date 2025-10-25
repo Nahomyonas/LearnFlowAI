@@ -49,8 +49,8 @@ export function CourseCard({ course }: CourseCardProps) {
     : `${status} course - /${slug}`;
 
   return (
-    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-      <CardHeader>
+    <Card className="bg-white hover:shadow-lg transition-shadow cursor-pointer">
+  <CardHeader>
         <div className="flex items-start justify-between">
           <div className={`p-3 rounded-lg ${gradient} mb-3`}>
             <BookOpen className="h-6 w-6 text-white" />

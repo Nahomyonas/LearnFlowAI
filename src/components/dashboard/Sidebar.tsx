@@ -17,7 +17,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r bg-gray-50 px-4 py-6">
+  <aside className="w-64 bg-gray-50 px-4 py-6">
       <nav className="space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;

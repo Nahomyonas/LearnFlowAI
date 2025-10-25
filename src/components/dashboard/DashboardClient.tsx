@@ -1,12 +1,12 @@
 "use client";
 
-import { Header } from "@/components/dashboard/Header";
-import { Sidebar } from "@/components/dashboard/Sidebar";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { CourseCard } from "@/components/dashboard/CourseCard";
 import { Button } from "@/components/dashboard/ui/button";
 import { Plus, Sparkles } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 type Status = 'draft' | 'published' | 'archived'
 
@@ -40,6 +40,7 @@ const api = {
 
 export default function DashboardClient() {
   const { data: session } = useSession();
+  const router = useRouter();
 
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(false)
@@ -63,12 +64,8 @@ export default function DashboardClient() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-8">
-          <div className="max-w-7xl mx-auto">
+    <DashboardShell>
+      <div className="max-w-7xl mx-auto">
             {/* Welcome Section */}
             <div className="mb-8">
               <h2 className="text-gray-900 mb-2">
@@ -84,6 +81,7 @@ export default function DashboardClient() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+                onClick={() => router.push("/dashboard/courses/create")}
               >
                 <Plus className="mr-2 h-5 w-5" />
                 Create New Course
@@ -97,7 +95,7 @@ export default function DashboardClient() {
             </div>
             
             {error && (
-              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+              <div className="mb-6 rounded-lg bg-red-50 p-4 rounded-lg">
                 <p className="text-sm text-red-800">{error}</p>
               </div>
             )}
@@ -105,15 +103,16 @@ export default function DashboardClient() {
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-64 rounded-lg border bg-white animate-pulse" />
+                  <div key={i} className="h-64 rounded-lg bg-white animate-pulse" />
                 ))}
               </div>
             ) : courses.length === 0 ? (
-              <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
+              <div className="rounded-lg bg-white p-12 text-center">
                 <p className="text-gray-600 mb-4">No courses yet. Create your first course to get started!</p>
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  onClick={() => router.push("/dashboard/courses/create")}
                 >
                   <Plus className="mr-2 h-5 w-5" />
                   Create Your First Course
@@ -129,25 +128,23 @@ export default function DashboardClient() {
 
             {/* Stats Overview */}
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg p-6 border">
+              <div className="bg-white rounded-lg p-6">
                 <p className="text-gray-600 mb-2">Total Learning Time</p>
                 <p className="text-3xl text-gray-900">47.5 hrs</p>
                 <p className="text-sm text-green-600 mt-2">↑ 12% from last week</p>
               </div>
-              <div className="bg-white rounded-lg p-6 border">
+              <div className="bg-white rounded-lg p-6">
                 <p className="text-gray-600 mb-2">Courses Completed</p>
                 <p className="text-3xl text-gray-900">12</p>
                 <p className="text-sm text-green-600 mt-2">3 this month</p>
               </div>
-              <div className="bg-white rounded-lg p-6 border">
+              <div className="bg-white rounded-lg p-6">
                 <p className="text-gray-600 mb-2">Current Streak</p>
                 <p className="text-3xl text-gray-900">7 days</p>
                 <p className="text-sm text-purple-600 mt-2">🔥 Keep going!</p>
               </div>
             </div>
-          </div>
-        </main>
       </div>
-    </div>
+    </DashboardShell>
   );
 }
