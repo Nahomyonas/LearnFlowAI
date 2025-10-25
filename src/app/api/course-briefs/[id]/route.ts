@@ -46,6 +46,7 @@ export async function GET(
     learner_level: row.learnerLevel,
     target_difficulty: row.targetDifficulty,
     goals: row.goals,
+    planOutline: row.planOutline,
     mode_state: row.modeState,
     version: row.version,
     created_at: row.createdAt,

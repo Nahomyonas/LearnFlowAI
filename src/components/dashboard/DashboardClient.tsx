@@ -6,6 +6,7 @@ import { useSession, signOut } from '@/lib/auth-client'
 import UserMenu from './UserMenu'
 import BriefCard from './BriefCard'
 import QuickActions from './QuickActions'
+import GenerateOutlineModal from './GenerateOutlineModal'
 
 type BriefSource = 'manual' | 'bot'
 type Status = 'draft' | 'published' | 'archived'
@@ -245,6 +246,9 @@ export default function DashboardClient() {
   )
   const [committingId, setCommittingId] = useState<string | null>(null)
 
+  const [generateModalOpen, setGenerateModalOpen] = useState(false)
+  const [selectedBriefForGeneration, setSelectedBriefForGeneration] = useState<Brief | null>(null)
+
   const [lessonsByModule, setLessonsByModule] = useState<
     Record<string, Lesson[]>
   >({})
@@ -342,6 +346,21 @@ export default function DashboardClient() {
     } finally {
       setCommittingId(null)
     }
+  }
+
+  function openGenerateModal(brief: Brief) {
+    setSelectedBriefForGeneration(brief)
+    setGenerateModalOpen(true)
+  }
+
+  function closeGenerateModal() {
+    setGenerateModalOpen(false)
+    setSelectedBriefForGeneration(null)
+  }
+
+  function handleGenerateSuccess(result: { moduleCount: number; lessonCount: number }) {
+    setInfo(`AI outline generated: ${result.moduleCount} modules, ${result.lessonCount} lessons ✅`)
+    loadAll() // Refresh to show updated brief state
   }
 
   async function createModule(courseId: string) {
@@ -490,6 +509,7 @@ export default function DashboardClient() {
                 }}
                 committing={committingId === b.id}
                 onCommit={() => commitBrief(b.id)}
+                onGenerateOutline={() => openGenerateModal(b)}
               />
             ))}
           </ul>
@@ -749,6 +769,17 @@ export default function DashboardClient() {
           </ul>
         )}
       </Card>
+
+      {/* Generate Outline Modal */}
+      {selectedBriefForGeneration && (
+        <GenerateOutlineModal
+          briefId={selectedBriefForGeneration.id}
+          topic={selectedBriefForGeneration.topic || 'Untitled'}
+          isOpen={generateModalOpen}
+          onClose={closeGenerateModal}
+          onSuccess={handleGenerateSuccess}
+        />
+      )}
     </div>
   )
 }
