@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signOut } from '@/lib/auth-client'
 import UserMenu from './UserMenu'
+import BriefCard from './BriefCard'
+import QuickActions from './QuickActions'
 
 type BriefSource = 'manual' | 'bot'
 type Status = 'draft' | 'published' | 'archived'
@@ -231,10 +233,6 @@ export default function DashboardClient() {
   const [messageKind, setMessageKind] = useState<'info' | 'error'>('info')
   const [loading, setLoading] = useState(false)
 
-  const [newBriefTopic, setNewBriefTopic] = useState('')
-  const [newBriefSource, setNewBriefSource] = useState<BriefSource>('manual')
-  const [newCourseTitle, setNewCourseTitle] = useState('')
-
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null)
   const [modulesByCourse, setModulesByCourse] = useState<
     Record<string, Module[]>
@@ -310,11 +308,10 @@ export default function DashboardClient() {
     }
   }
 
-  async function createBrief() {
+  async function createBrief(source: BriefSource, topic: string) {
     setMessage(null)
     try {
-      await api.briefs.create({ source: newBriefSource, topic: newBriefTopic })
-      setNewBriefTopic('')
+      await api.briefs.create({ source, topic })
       await loadAll()
       setInfo('Brief created ✅')
     } catch (e: any) {
@@ -322,11 +319,10 @@ export default function DashboardClient() {
     }
   }
 
-  async function createCourse() {
+  async function createCourse(title: string) {
     setMessage(null)
     try {
-      await api.courses.create({ title: newCourseTitle })
-      setNewCourseTitle('')
+      await api.courses.create({ title })
       await loadAll()
       setInfo('Course created ✅')
     } catch (e: any) {
@@ -464,54 +460,10 @@ export default function DashboardClient() {
       {message && <Banner kind={messageKind}>{message}</Banner>}
 
       {/* Quick actions */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card title="New Brief">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <select
-              className={cls.select}
-              value={newBriefSource}
-              onChange={(e) => setNewBriefSource(e.target.value as BriefSource)}
-              aria-label="Brief source"
-            >
-              <option value="manual">manual</option>
-              <option value="bot">bot</option>
-            </select>
-            <input
-              className={cls.input}
-              placeholder="Topic (e.g., Intro to React)"
-              value={newBriefTopic}
-              onChange={(e) => setNewBriefTopic(e.target.value)}
-              aria-label="Brief topic"
-            />
-            <button
-              onClick={createBrief}
-              className={cls.btnPrimary}
-              disabled={!newBriefTopic.trim()}
-            >
-              Create Brief
-            </button>
-          </div>
-        </Card>
-
-        <Card title="New Course (Manual)">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <input
-              className={cls.input}
-              placeholder="Title (e.g., React for Beginners)"
-              value={newCourseTitle}
-              onChange={(e) => setNewCourseTitle(e.target.value)}
-              aria-label="Course title"
-            />
-            <button
-              onClick={createCourse}
-              className={cls.btnPrimary}
-              disabled={!newCourseTitle.trim()}
-            >
-              Create Course
-            </button>
-          </div>
-        </Card>
-      </div>
+      <QuickActions
+        onCreateBrief={createBrief}
+        onCreateCourse={createCourse}
+      />
 
       {/* Briefs */}
       <Card
@@ -526,35 +478,20 @@ export default function DashboardClient() {
           <div className="text-sm text-neutral-400">No briefs yet.</div>
         ) : (
           <ul className="grid gap-3">
-            {briefs.map((b) => {
-              const humanTime = new Date(b.updated_at).toLocaleString()
-              const disabled = b.mode_state === 'committed'
-              return (
-                <li key={b.id} className={cls.listItem}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-neutral-100">
-                        {b.topic || '(untitled brief)'}
-                      </div>
-                      <div className="text-xs text-neutral-400">
-                        {b.source} · {b.mode_state} · updated {humanTime}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => commitBrief(b.id)}
-                        disabled={disabled || committingId === b.id}
-                        className={cls.btnGhost}
-                      >
-                        {committingId === b.id
-                          ? 'Committing…'
-                          : 'Commit → Course'}
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
+            {briefs.map((b) => (
+              <BriefCard
+                key={b.id}
+                brief={{
+                  id: b.id,
+                  topic: b.topic,
+                  source: b.source as any,
+                  mode_state: b.mode_state as any,
+                  updated_at: b.updated_at,
+                }}
+                committing={committingId === b.id}
+                onCommit={() => commitBrief(b.id)}
+              />
+            ))}
           </ul>
         )}
       </Card>
