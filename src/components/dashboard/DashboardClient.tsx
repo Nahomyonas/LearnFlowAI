@@ -296,12 +296,13 @@ export default function DashboardClient() {
     }
   }
 
-  async function loadModules(courseId: string) {
+  async function loadModules(courseId: string): Promise<Module[] | undefined> {
     setLoadingModulesFor(courseId)
     setMessage(null)
     try {
       const items = await api.modules.listByCourse(courseId)
       setModulesByCourse((prev) => ({ ...prev, [courseId]: items }))
+      return items
     } catch (e: any) {
       setError(e?.message ?? 'Error loading modules')
     } finally {
@@ -589,11 +590,12 @@ export default function DashboardClient() {
                         onClick={async () => {
                           const next = isExpanded ? null : c.id
                           setExpandedCourseId(next)
+                          let mods: Module[] = modulesByCourse[c.id] || []
                           if (next && !modulesByCourse[c.id]) {
-                            await loadModules(c.id)
+                            const loaded = await loadModules(c.id)
+                            if (loaded) mods = loaded
                           }
-                          // after modules are loaded, fetch lessons for each module once
-                          const mods = modulesByCourse[c.id] || []
+                          // after modules are available, fetch lessons for each module once
                           for (const m of mods) {
                             if (!lessonsByModule[m.id]) {
                               // fire-and-forget; if you prefer serial, await inside loop

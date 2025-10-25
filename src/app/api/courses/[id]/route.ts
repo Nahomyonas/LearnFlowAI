@@ -101,6 +101,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       status: (patch.status as any) ?? current.status,
       visibility: (patch.visibility as any) ?? current.visibility,
       updatedAt: now,
+      goals: patch.goals !== undefined ? patch.goals : current.goals,
     })
     .where(eq(courses.id, current.id))
     .returning();
@@ -114,6 +115,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     visibility: updated.visibility,
     created_at: updated.createdAt,
     updated_at: updated.updatedAt,
+    goals: updated.goals,
   });
   res.headers.set("ETag", etagFromUpdatedAt(updated.updatedAt));
   return res;
