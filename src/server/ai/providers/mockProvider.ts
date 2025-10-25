@@ -101,4 +101,169 @@ export const MockAiProvider: AiProvider = {
       tokens: { in: inTokens, out: outTokens },
     };
   },
+  async generateLessonContent({ topic, moduleTitle, lessonTitle, details, learnerLevel, targetDifficulty }) {
+    const t = (topic || "").trim();
+    const m = (moduleTitle || "").trim();
+    const l = (lessonTitle || "").trim();
+    const d = (details || "").trim();
+    const level = learnerLevel || "intermediate";
+    const diff = targetDifficulty || "standard";
+
+    // Seeded RNG for stable output
+    const rand = mulberry32(hashString(t + m + l + d + level + diff));
+
+    // Generate a deterministic but varied lesson content
+    const intro = `Welcome to the lesson "${l}" in the module "${m}" for the course "${t}".`;
+    const context = d ? `\n\nContext: ${d}` : "";
+    const levelMsg = `\n\nThis lesson is tailored for ${level} learners at a ${diff} difficulty.`;
+    const sections = [
+      "Key Concepts",
+      "Step-by-Step Explanation",
+      "Practical Example",
+      "Summary & Next Steps",
+    ];
+    const bullets = [
+      `• Understand the main idea behind ${l}`,
+      `• Learn how ${l} applies to real-world scenarios`,
+      `• Avoid common mistakes in ${l}`,
+      `• Practice with a hands-on exercise`,
+    ];
+    const sectionContent = sections.map((section, i) => `\n\n### ${section}\n${bullets[i % bullets.length]}`);
+    const outro = `\n\nCongratulations on completing the lesson!`;
+
+    // Compose the content
+    const content = [intro, context, levelMsg, ...sectionContent, outro].join("");
+
+    // Fake token accounting
+    const inTokens = Math.round(30 + rand() * 40);
+    const outTokens = Math.round(200 + rand() * 100);
+
+    return {
+      content,
+      tokens: { in: inTokens, out: outTokens },
+    };
+  },
+
+  async recommendLearningGoals({ topic, details }) {
+    const t = (topic || "").trim();
+    const d = (details || "").trim();
+
+    // Seeded RNG for stable output
+    const rand = mulberry32(hashString(t + d));
+
+    // Generate 3-5 learning goals
+    const goalCount = clamp(Math.round(3 + rand() * 2), 3, 5);
+
+    const goalTemplates = [
+      `Understand the core concepts and fundamentals of ${t}`,
+      `Apply ${t} principles through practical exercises`,
+      `Build real-world projects using ${t}`,
+      `Master advanced techniques in ${t}`,
+      `Develop problem-solving skills with ${t}`,
+      `Create production-ready solutions using ${t}`,
+      `Analyze and optimize ${t} implementations`,
+      `Debug and troubleshoot ${t} applications`,
+    ];
+
+    // Pick goals deterministically based on topic
+    const goals = Array.from({ length: goalCount }).map((_, i) => {
+      const templateIndex = (hashString(t + i) % goalTemplates.length);
+      return goalTemplates[templateIndex].slice(0, 200);
+    });
+
+    // Fake token accounting
+    const inTokens = Math.round(20 + rand() * 30);
+    const outTokens = Math.round(50 + goals.length * 15);
+
+    return {
+      goals,
+      tokens: { in: inTokens, out: outTokens },
+    };
+  },
+
+  async assessLearnerLevel({ topic, details, prerequisites }) {
+    const t = (topic || "").trim();
+    const d = (details || "").trim();
+
+    // Calculate percentage of prerequisites checked
+    const totalPrereqs = prerequisites.length;
+    const checkedCount = prerequisites.filter((p) => p.checked).length;
+    const percentage = totalPrereqs > 0 ? (checkedCount / totalPrereqs) * 100 : 0;
+
+    // Seeded RNG for consistent output
+    const rand = mulberry32(hashString(t + d + checkedCount));
+
+    // Determine level based on percentage with some randomness for edge cases
+    let level: "novice" | "intermediate" | "advanced";
+    let explanation: string;
+
+    if (percentage >= 75) {
+      level = "advanced";
+      explanation = `You have strong foundational knowledge with ${checkedCount} out of ${totalPrereqs} prerequisites met. You're ready to dive into advanced ${t} concepts and build on your existing expertise.`;
+    } else if (percentage >= 40) {
+      level = "intermediate";
+      explanation = `You have some prerequisite knowledge with ${checkedCount} out of ${totalPrereqs} prerequisites met. This course will build on what you know while introducing new ${t} concepts at a moderate pace.`;
+    } else {
+      level = "novice";
+      explanation = `You're just getting started with ${checkedCount} out of ${totalPrereqs} prerequisites met. This course will cover ${t} fundamentals from the ground up, ensuring you have a solid foundation.`;
+    }
+
+    // Fake token accounting
+    const inTokens = Math.round(30 + rand() * 40);
+    const outTokens = Math.round(40 + rand() * 30);
+
+    return {
+      level,
+      explanation,
+      tokens: { in: inTokens, out: outTokens },
+    };
+  },
+
+  async analyzePrerequisites({ topic, details }) {
+    const t = (topic || "").trim();
+    const d = (details || "").trim();
+
+    // Seeded RNG for stable output
+    const rand = mulberry32(hashString(t + d));
+
+    // Generate 4-7 prerequisites
+    const prereqCount = clamp(Math.round(4 + rand() * 3), 4, 7);
+
+    const prereqTemplates = [
+      `Basic understanding of ${t} fundamentals`,
+      `Familiarity with related concepts and terminology`,
+      `Prior experience with similar tools or technologies`,
+      `Understanding of core programming principles`,
+      `Knowledge of basic computer operations`,
+      `Experience with text editors or development environments`,
+      `Fundamental math or logic skills`,
+      `Problem-solving and analytical thinking abilities`,
+      `Comfort with learning new technical concepts`,
+      `Access to necessary tools and resources`,
+    ];
+
+    // Pick prerequisites deterministically based on topic
+    const prerequisites = Array.from({ length: prereqCount }).map((_, i) => {
+      const templateIndex = (hashString(t + "prereq" + i) % prereqTemplates.length);
+      let prereq = prereqTemplates[templateIndex];
+      
+      // Make some prerequisites more specific to the topic
+      if (i === 0 && t) {
+        prereq = `Basic understanding of ${t} concepts`;
+      } else if (i === 1 && t) {
+        prereq = `Familiarity with ${t} terminology and ecosystem`;
+      }
+      
+      return prereq.slice(0, 200);
+    });
+
+    // Fake token accounting
+    const inTokens = Math.round(20 + rand() * 30);
+    const outTokens = Math.round(40 + prerequisites.length * 10);
+
+    return {
+      prerequisites,
+      tokens: { in: inTokens, out: outTokens },
+    };
+  },
 };

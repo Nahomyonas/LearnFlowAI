@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/dashboard/ui/checkbox";
 import { Badge } from "@/components/dashboard/ui/badge";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { useRouter, useSearchParams } from "next/navigation";
+import { api } from "@/utils/api_helpers";
 import { 
   Sparkles, 
   Check, 
@@ -45,6 +46,11 @@ export function CreateCourseOutline() {
 
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
+  const [briefData, setBriefData] = useState<{
+    topic: string | null;
+    details: string | null;
+    goals: string[] | null;
+  } | null>(null);
 
   // Validate briefId exists and belongs to user
   useEffect(() => {
@@ -55,12 +61,12 @@ export function CreateCourseOutline() {
 
     const validateBrief = async () => {
       try {
-        const response = await fetch(`/api/course-briefs/${briefId}`);
-        if (!response.ok) {
-          // Brief doesn't exist or user doesn't have access
-          router.push("/dashboard/courses/create");
-          return;
-        }
+        const brief = await api.briefs.get(briefId);
+        setBriefData({
+          topic: brief.topic,
+          details: brief.details,
+          goals: brief.goals,
+        });
         setIsValid(true);
       } catch (error) {
         console.error("Error validating brief:", error);
@@ -93,19 +99,30 @@ export function CreateCourseOutline() {
   ]);
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set(["1"]));
 
-  const handleAnalyzePrerequisites = () => {
+  const handleAnalyzePrerequisites = async () => {
+    if (!briefData?.topic) return;
+    
     setIsAnalyzingPrerequisites(true);
-    // Placeholder - simulate AI analysis
-    setTimeout(() => {
-      setPrerequisites([
-        { id: "1", text: "Basic understanding of HTML and CSS", checked: false },
-        { id: "2", text: "Familiarity with programming concepts", checked: false },
-        { id: "3", text: "Experience with a text editor or IDE", checked: false },
-        { id: "4", text: "Understanding of web browsers", checked: false },
-        { id: "5", text: "Basic computer literacy", checked: false },
-      ]);
+    try {
+      const result = await api.ai.analyzePrerequisites({
+        topic: briefData.topic,
+        details: briefData.details || undefined,
+      });
+      
+      // Transform string array to prerequisite objects with checked state
+      const prereqObjects = result.prerequisites.map((text, index) => ({
+        id: String(index + 1),
+        text,
+        checked: false,
+      }));
+      
+      setPrerequisites(prereqObjects);
+    } catch (error) {
+      console.error("Error analyzing prerequisites:", error);
+      alert("Failed to analyze prerequisites. Please try again.");
+    } finally {
       setIsAnalyzingPrerequisites(false);
-    }, 2000);
+    }
   };
 
   const handlePrerequisiteToggle = (id: string) => {
@@ -114,10 +131,28 @@ export function CreateCourseOutline() {
     ));
   };
 
-  const handleDetermineLearnerLevel = () => {
+  const handleDetermineLearnerLevel = async () => {
+    if (!briefData?.topic) return;
+    
     setIsDeterminingLevel(true);
-    // Placeholder - simulate AI determination
-    setTimeout(() => {
+    try {
+      const result = await api.ai.assessLearnerLevel({
+        topic: briefData.topic,
+        details: briefData.details || undefined,
+        prerequisites: prerequisites,
+      });
+      
+      // Format the level with explanation
+      const levelMap = {
+        novice: "Beginner",
+        intermediate: "Intermediate", 
+        advanced: "Advanced"
+      };
+      
+      setLearnerLevel(`${levelMap[result.level]} - ${result.explanation}`);
+    } catch (error) {
+      console.error("Error determining learner level:", error);
+      // Fallback to simple calculation
       const checkedCount = prerequisites.filter(p => p.checked).length;
       const total = prerequisites.length;
       const percentage = (checkedCount / total) * 100;
@@ -129,56 +164,51 @@ export function CreateCourseOutline() {
       } else {
         setLearnerLevel("Beginner - We'll start from the basics");
       }
+    } finally {
       setIsDeterminingLevel(false);
-    }, 2000);
+    }
   };
 
-  const handleGenerateOutline = () => {
+  const handleGenerateOutline = async () => {
+    if (!briefId || !briefData?.topic) return;
+    
     setIsGeneratingOutline(true);
-    // Placeholder - simulate AI outline generation
-    setTimeout(() => {
-      const modules: Module[] = [
-        {
-          id: "m1",
-          title: "Introduction to the Fundamentals",
-          lessons: [
-            { id: "m1-l1", title: "Welcome and Course Overview" },
-            { id: "m1-l2", title: "Setting Up Your Environment" },
-            { id: "m1-l3", title: "Core Concepts Explained" },
-          ]
-        },
-        {
-          id: "m2",
-          title: "Building Your First Project",
-          lessons: [
-            { id: "m2-l1", title: "Project Planning and Setup" },
-            { id: "m2-l2", title: "Implementing Core Features" },
-            { id: "m2-l3", title: "Testing and Debugging" },
-            { id: "m2-l4", title: "Deployment Basics" },
-          ]
-        },
-        {
-          id: "m3",
-          title: "Advanced Techniques",
-          lessons: [
-            { id: "m3-l1", title: "Optimization Strategies" },
-            { id: "m3-l2", title: "Best Practices and Patterns" },
-            { id: "m3-l3", title: "Real-World Applications" },
-          ]
-        },
-        {
-          id: "m4",
-          title: "Final Project and Certification",
-          lessons: [
-            { id: "m4-l1", title: "Final Project Brief" },
-            { id: "m4-l2", title: "Building Your Capstone" },
-            { id: "m4-l3", title: "Review and Next Steps" },
-          ]
-        },
-      ];
-      setGeneratedModules(modules);
+    try {
+      // Call the API to generate outline
+      await api.ai.generateOutline({
+        briefId,
+        topic: briefData.topic,
+        details: briefData.details || undefined,
+        goals: briefData.goals || undefined,
+      });
+      
+      // Fetch the updated brief to get the generated outline
+      const updatedBrief = await api.briefs.get(briefId);
+      
+      if (updatedBrief.planOutline) {
+        const outline = updatedBrief.planOutline;
+        
+        // Transform the outline to our module format
+        const modules: Module[] = outline.modules.map((mod: any, idx: number) => ({
+          id: `m${idx + 1}`,
+          title: mod.title,
+          lessons: mod.lessons.map((lesson: any, lessonIdx: number) => ({
+            id: `m${idx + 1}-l${lessonIdx + 1}`,
+            title: lesson.title,
+          })),
+        }));
+        
+        setGeneratedModules(modules);
+        
+        // Expand all modules by default
+        setExpandedModules(new Set(modules.map(m => m.id)));
+      }
+    } catch (error) {
+      console.error("Error generating outline:", error);
+      alert("Failed to generate outline. Please try again.");
+    } finally {
       setIsGeneratingOutline(false);
-    }, 3000);
+    }
   };
 
   const toggleModuleExpansion = (moduleId: string) => {
@@ -289,9 +319,9 @@ export function CreateCourseOutline() {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" className="mb-4 -ml-2" onClick={() => router.push("/dashboard")}>
+          <Button variant="ghost" className="mb-4 -ml-2" onClick={() => router.push("/dashboard/courses/create")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
+            Back to Course Brief
           </Button>
           <h1 className="text-gray-900 mb-2">Create Course Outline</h1>
           <p className="text-gray-600">

@@ -136,24 +136,31 @@ export function CreateCourseBrief() {
   };
 
   // AI goal suggestion
-  const handleSuggestGoals = () => {
+  const handleSuggestGoals = async () => {
+    if (!formData.title.trim()) {
+      alert("Please enter a course title first");
+      return;
+    }
+    
     setIsSuggestingGoals(true);
-    // Placeholder - simulate AI goal generation
-    setTimeout(() => {
-      const suggestedGoals = [
-        "Understand core concepts and fundamentals",
-        "Apply knowledge through practical exercises",
-        "Build real-world projects and examples",
-        "Master advanced techniques and best practices",
-      ];
+    try {
+      const result = await api.ai.recommendLearningGoals({
+        topic: formData.title,
+        details: formData.summary || undefined,
+      });
+      
       // Filter out empty existing goals and append new suggestions
       const existingGoals = learningGoals.filter(goal => goal.trim() !== "");
-      const combinedGoals = [...existingGoals, ...suggestedGoals];
+      const combinedGoals = [...existingGoals, ...result.goals];
       setLearningGoals(combinedGoals);
       setErrors({ ...errors, goals: "" });
-      setIsSuggestingGoals(false);
       setHasUsedAISuggestions(true);
-    }, 2000);
+    } catch (error) {
+      console.error("Error suggesting goals:", error);
+      alert("Failed to generate goal suggestions. Please try again.");
+    } finally {
+      setIsSuggestingGoals(false);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,29 +188,16 @@ export function CreateCourseBrief() {
 
     setIsSaving(true);
     try {
-      // Save the course brief
-      const response = await fetch("/api/course-briefs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          source: "manual",
-          topic: formData.title,
-          details: formData.summary,
-          goals: learningGoals.filter(g => g.trim() !== ""),
-        }),
+      // Save the course brief using api helper
+      const data = await api.briefs.create({
+        source: "manual",
+        topic: formData.title,
+        details: formData.summary,
+        goals: learningGoals.filter(g => g.trim() !== ""),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to save course brief");
-      }
-
-      const data = await response.json();
-      const briefId = data.id;
-
       // Navigate to outline page with the brief ID
-      router.push(`/dashboard/courses/create/outline?briefId=${briefId}`);
+      router.push(`/dashboard/courses/create/outline?briefId=${data.id}`);
     } catch (error) {
       console.error("Error saving course brief:", error);
       // TODO: Show error toast

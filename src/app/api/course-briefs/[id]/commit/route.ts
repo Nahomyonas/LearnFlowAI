@@ -12,7 +12,7 @@ import {
 } from '@/db/schema'
 import { requireUserId } from '@/lib/auth'
 import { slugify } from '@/lib/slug'
-import { aiOutlineContract } from '@/contracts/ai-outline'
+import { aiOutlineContract } from '@/contracts/ai-response'
 
 export async function POST(
   _req: NextRequest,

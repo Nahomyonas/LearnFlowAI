@@ -20,14 +20,15 @@ function parseIfMatch(req: Request) {
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const userId = await requireUserId()
+  const { id } = await params
   const [row] = await db
     .select()
     .from(courseBriefs)
     .where(
-      and(eq(courseBriefs.id, params.id), eq(courseBriefs.ownerUserId, userId))
+      and(eq(courseBriefs.id, id), eq(courseBriefs.ownerUserId, userId))
     )
     .limit(1)
 
@@ -58,9 +59,10 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const userId = await requireUserId()
+  const { id } = await params
 
   // parse and validate body
   const expectedVersion = parseIfMatch(req)
@@ -98,7 +100,7 @@ export async function PATCH(
     .select()
     .from(courseBriefs)
     .where(
-      and(eq(courseBriefs.id, params.id), eq(courseBriefs.ownerUserId, userId))
+      and(eq(courseBriefs.id, id), eq(courseBriefs.ownerUserId, userId))
     )
     .limit(1)
 
@@ -122,10 +124,11 @@ export async function PATCH(
     )
   }
 
-    const nextVersion = current.version + 1;
+  const nextVersion = current.version + 1;
   const [updated] = await db
     .update(courseBriefs)
     .set({
+      source: patch.source ?? current.source,
       topic: patch.topic ?? current.topic,
       details: patch.details ?? current.details,
       learnerLevel: (patch.learner_level as any) ?? current.learnerLevel,

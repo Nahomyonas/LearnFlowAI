@@ -4,12 +4,13 @@ import { db } from '@/db/client'
 import { courseBriefs, briefEvents } from '@/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import { getAiProvider } from '@/server/ai/ai-provider-factory'
-import { aiOutlineContract } from '@/contracts/ai-outline'
+import { aiOutlineContract } from '@/contracts/ai-response'
+import { GenerateOutlineRequestSchema } from '@/contracts/ai'
 import { z } from 'zod'
 
-const requestSchema = z.object({
+const requestSchema = GenerateOutlineRequestSchema.extend({
   briefId: z.string().uuid(),
-})
+});
 
 /**
  * POST /api/ai/generate-outline

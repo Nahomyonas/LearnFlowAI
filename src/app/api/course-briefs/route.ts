@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     .insert(courseBriefs)
     .values({
       ownerUserId: userId,
-      source: data.source,
+      source: data.source ?? "manual", // Default to "manual" if not provided
       topic: data.topic ?? null,
       details: data.details ?? null,
       learnerLevel: (data.learner_level as any) ?? null,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { AiOutline } from '@/contracts/ai-outline'
+import type { AiOutline } from '@/contracts/ai-response'
 
 interface GenerateOutlineModalProps {
   briefId: string

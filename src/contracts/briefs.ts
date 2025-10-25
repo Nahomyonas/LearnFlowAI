@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CreateCourseBriefSchema = z.object({
-  source: z.enum(["manual", "bot"]),
+  source: z.enum(["manual", "bot"]).optional(),
   topic: z.string().min(1).max(200).optional(),
   details: z.string().max(10_000).optional(),
   learner_level: z.enum(["novice", "intermediate", "advanced"]).optional(),
@@ -11,6 +11,7 @@ export const CreateCourseBriefSchema = z.object({
 
 // allow partial edits; forbid changing source
 export const UpdateCourseBriefSchema = z.object({
+  source: z.enum(["manual", "bot"]).optional(),
   topic: z.string().min(1).max(200).optional(),
   details: z.string().max(10_000).optional(),
   learner_level: z.enum(["novice", "intermediate", "advanced"]).optional(),

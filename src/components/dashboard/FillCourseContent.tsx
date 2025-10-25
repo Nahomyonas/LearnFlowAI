@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { aiOutlineContract } from "@/contracts/ai-response";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/dashboard/ui/card";
 import { Button } from "@/components/dashboard/ui/button";
@@ -43,6 +44,7 @@ interface Module {
 }
 
 export function FillCourseContent() {
+  const [isPublishing, setIsPublishing] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const briefId = searchParams.get("briefId");
@@ -83,37 +85,43 @@ export function FillCourseContent() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   
-  // Sample modules and lessons - would come from previous step
-  const [modules, setModules] = useState<Module[]>([
-    {
-      id: "m1",
-      title: "Introduction to the Fundamentals",
-      lessons: [
-        { id: "m1-l1", title: "Welcome and Course Overview", content: "", generationStatus: "pending" },
-        { id: "m1-l2", title: "Setting Up Your Environment", content: "", generationStatus: "pending" },
-        { id: "m1-l3", title: "Core Concepts Explained", content: "", generationStatus: "pending" },
-      ]
-    },
-    {
-      id: "m2",
-      title: "Building Your First Project",
-      lessons: [
-        { id: "m2-l1", title: "Project Planning and Setup", content: "", generationStatus: "pending" },
-        { id: "m2-l2", title: "Implementing Core Features", content: "", generationStatus: "pending" },
-        { id: "m2-l3", title: "Testing and Debugging", content: "", generationStatus: "pending" },
-        { id: "m2-l4", title: "Deployment Basics", content: "", generationStatus: "pending" },
-      ]
-    },
-    {
-      id: "m3",
-      title: "Advanced Techniques",
-      lessons: [
-        { id: "m3-l1", title: "Optimization Strategies", content: "", generationStatus: "pending" },
-        { id: "m3-l2", title: "Best Practices and Patterns", content: "", generationStatus: "pending" },
-        { id: "m3-l3", title: "Real-World Applications", content: "", generationStatus: "pending" },
-      ]
-    },
-  ]);
+  // Load modules and lessons from brief's planOutline
+  const [modules, setModules] = useState<Module[]>([]);
+
+  useEffect(() => {
+    const fetchModulesFromBrief = async () => {
+      if (!briefId) return;
+      try {
+        const apiHelpers = await import("@/utils/api_helpers");
+        const brief = await apiHelpers.api.briefs.get(briefId);
+        let parsed = null;
+        if (brief.planOutline) {
+          parsed = aiOutlineContract.safeParse(brief.planOutline);
+        }
+        if (parsed && parsed.success) {
+          const loadedModules: Module[] = parsed.data.modules.map((mod, idx) => ({
+            id: `m${idx + 1}`,
+            title: mod.title,
+            lessons: mod.lessons.map((lesson, lessonIdx) => ({
+              id: `m${idx + 1}-l${lessonIdx + 1}`,
+              title: lesson.title,
+              content: "",
+              generationStatus: "pending"
+            })),
+          }));
+          setModules(loadedModules);
+        } else {
+          setModules([]);
+        }
+      } catch (err) {
+        // Optionally handle error
+        console.error("Failed to load modules from brief", err);
+        setModules([]);
+      }
+    };
+    fetchModulesFromBrief();
+    // Only run on mount or when briefId changes
+  }, [briefId]);
 
   const [selectedLesson, setSelectedLesson] = useState<{ moduleId: string; lessonId: string } | null>(null);
 
@@ -121,56 +129,86 @@ export function FillCourseContent() {
     setIsGenerating(true);
     setHasGenerated(true);
 
-    // Simulate AI generation for each lesson
-    const allLessons: Array<{ moduleId: string; lessonId: string }> = [];
-    modules.forEach(module => {
-      module.lessons.forEach(lesson => {
-        allLessons.push({ moduleId: module.id, lessonId: lesson.id });
-      });
-    });
+    // Gather topic from brief (for now, use first module title as fallback)
+    const topic = modules[0]?.title || "Course";
+
+    // Import API helpers once
+    const apiHelpers = await import("@/utils/api_helpers");
 
     // Generate content for each lesson sequentially
-    for (let i = 0; i < allLessons.length; i++) {
-      const { moduleId, lessonId } = allLessons[i];
-      
-      // Set to generating
-      setModules(prevModules => 
-        prevModules.map(m => 
-          m.id === moduleId 
-            ? {
-                ...m,
-                lessons: m.lessons.map(l =>
-                  l.id === lessonId ? { ...l, generationStatus: "generating" as const } : l
-                )
-              }
-            : m
-        )
-      );
+    for (const module of modules) {
+      for (const lesson of module.lessons) {
+        // Set to generating
+        setModules(prevModules =>
+          prevModules.map(prevModule =>
+            prevModule.id === module.id
+              ? {
+                  ...prevModule,
+                  lessons: prevModule.lessons.map(prevLesson =>
+                    prevLesson.id === lesson.id ? { ...prevLesson, generationStatus: "generating" as const } : prevLesson
+                  )
+                }
+              : prevModule
+          )
+        );
 
-      // Simulate generation time
-      await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+          // Call the real AI API
+          const result = await apiHelpers.api.ai.generateLessonContent({
+            topic,
+            moduleTitle: module.title,
+            lessonTitle: lesson.title,
+          });
 
-      // Set to generated with content
-      setModules(prevModules => 
-        prevModules.map(m => 
-          m.id === moduleId 
-            ? {
-                ...m,
-                lessons: m.lessons.map(l =>
-                  l.id === lessonId 
-                    ? { 
-                        ...l, 
-                        generationStatus: "generated" as const,
-                        content: `# ${l.title}\n\nThis is AI-generated content for ${l.title}. In a real implementation, this would contain comprehensive learning materials, examples, and exercises tailored to the lesson objectives.\n\n## Key Points\n- Important concept 1\n- Important concept 2\n- Important concept 3\n\n## Practice Exercise\nTry implementing what you've learned...`
-                      } 
-                    : l
-                )
-              }
-            : m
-        )
-      );
+          // Persist generated content to backend
+          try {
+            await apiHelpers.api.lessons.update(lesson.id, { content: result.content });
+          } catch (persistError) {
+            // Optionally handle error (e.g., show notification)
+            // For now, just log
+            console.error("Failed to persist lesson content", persistError);
+          }
+
+          setModules(prevModules =>
+            prevModules.map(prevModule =>
+              prevModule.id === module.id
+                ? {
+                    ...prevModule,
+                    lessons: prevModule.lessons.map(prevLesson =>
+                      prevLesson.id === lesson.id
+                        ? {
+                            ...prevLesson,
+                            generationStatus: "generated" as const,
+                            content: result.content,
+                          }
+                        : prevLesson
+                    )
+                  }
+                : prevModule
+            )
+          );
+        } catch (error) {
+          setModules(prevModules =>
+            prevModules.map(prevModule =>
+              prevModule.id === module.id
+                ? {
+                    ...prevModule,
+                    lessons: prevModule.lessons.map(prevLesson =>
+                      prevLesson.id === lesson.id
+                        ? {
+                            ...prevLesson,
+                            generationStatus: "pending" as const,
+                            content: "[Error generating content]",
+                          }
+                        : prevLesson
+                    )
+                  }
+                : prevModule
+            )
+          );
+        }
+      }
     }
-
     setIsGenerating(false);
   };
 
@@ -574,13 +612,27 @@ export function FillCourseContent() {
               {contentMode === "manual" && "Save your content and publish your course when ready."}
             </p>
           </div>
-          <Button 
-            size="lg" 
-            disabled={contentMode === "ai" ? (!hasGenerated || isGenerating) : false}
+          <Button
+            size="lg"
+            disabled={contentMode === "ai" ? (!hasGenerated || isGenerating) : isPublishing}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={async () => {
+              if (!briefId) return;
+              setIsPublishing(true);
+              try {
+                const apiHelpers = await import("@/utils/api_helpers");
+                await apiHelpers.api.briefs.commit(briefId);
+                // Optionally, navigate to the new course or show a success message
+                router.push("/dashboard");
+              } catch (error: any) {
+                alert(error?.message || "Failed to publish course");
+              } finally {
+                setIsPublishing(false);
+              }
+            }}
           >
             <Check className="mr-2 h-4 w-4" />
-            Publish Course
+            {isPublishing ? "Publishing..." : "Publish Course"}
           </Button>
         </div>
       </div>
