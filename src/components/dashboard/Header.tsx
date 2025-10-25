@@ -1,10 +1,16 @@
 "use client";
-
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { User, Settings, LogOut, Award, BarChart } from "lucide-react";
+import MeMenu from "./MeMenu";
+import { useSession, signOut } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 export function Header() {
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  const name = session?.user?.name || session?.user?.email || "";
+  const email = session?.user?.email || undefined;
+  const avatarUrl = (session?.user as any)?.image || "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah";
+
   return (
     <header className="border-b bg-white px-6 py-4">
       <div className="flex items-center justify-between">
@@ -18,45 +24,19 @@ export function Header() {
           </div>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger className="focus:outline-none">
-            <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
-              <div className="text-right">
-                <p className="text-sm text-gray-900">Sarah Johnson</p>
-                <p className="text-xs text-gray-500">Premium Member</p>
-              </div>
-              <Avatar className="h-10 w-10 border-2 border-purple-500">
-                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah" alt="Sarah Johnson" />
-                <AvatarFallback>SJ</AvatarFallback>
-              </Avatar>
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <BarChart className="mr-2 h-4 w-4" />
-              <span>Learning Stats</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Award className="mr-2 h-4 w-4" />
-              <span>Achievements</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <MeMenu
+          name={name || " "}
+          subtitle={email}
+          avatarUrl={avatarUrl}
+          onLogout={async () => {
+            try {
+              await signOut();
+              router.replace("/signin");
+            } catch {
+              // no-op
+            }
+          }}
+        />
       </div>
     </header>
   );
