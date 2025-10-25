@@ -125,25 +125,6 @@ export default function DashboardClient() {
                 ))}
               </div>
             )}
-
-            {/* Stats Overview */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg p-6">
-                <p className="text-gray-600 mb-2">Total Learning Time</p>
-                <p className="text-3xl text-gray-900">47.5 hrs</p>
-                <p className="text-sm text-green-600 mt-2">↑ 12% from last week</p>
-              </div>
-              <div className="bg-white rounded-lg p-6">
-                <p className="text-gray-600 mb-2">Courses Completed</p>
-                <p className="text-3xl text-gray-900">12</p>
-                <p className="text-sm text-green-600 mt-2">3 this month</p>
-              </div>
-              <div className="bg-white rounded-lg p-6">
-                <p className="text-gray-600 mb-2">Current Streak</p>
-                <p className="text-3xl text-gray-900">7 days</p>
-                <p className="text-sm text-purple-600 mt-2">🔥 Keep going!</p>
-              </div>
-            </div>
       </div>
     </DashboardShell>
   );
