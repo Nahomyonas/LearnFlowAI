@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
@@ -15,9 +16,10 @@ type Course = {
 
 interface CourseCardProps {
   course: Course;
+  onClick?: () => void;
 }
 
-export function CourseCard({ course }: CourseCardProps) {
+export function CourseCard({ course, onClick }: CourseCardProps) {
   const { title, slug, status, goals } = course;
 
   const statusColors = {
@@ -49,7 +51,18 @@ export function CourseCard({ course }: CourseCardProps) {
     : `${status} course - /${slug}`;
 
   return (
-    <Card className="bg-white hover:shadow-lg transition-shadow cursor-pointer">
+    <Card
+      className="bg-white hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={onClick}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
   <CardHeader>
         <div className="flex items-start justify-between">
           <div className={`p-3 rounded-lg ${gradient} mb-3`}>

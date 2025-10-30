@@ -2,12 +2,14 @@
 
 import { BookOpen, Home, Settings, Trophy, TrendingUp, Star, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/dashboard/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/dashboard/ui/tooltip";
 
 export function Sidebar() {
   const [activeItem, setActiveItem] = useState("courses");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const router = useRouter();
 
   const menuItems = [
     { id: "home", label: "Home", icon: Home },
@@ -37,10 +39,17 @@ export function Sidebar() {
             const Icon = item.icon;
             const isActive = activeItem === item.id;
 
+            const handleClick = () => {
+              setActiveItem(item.id);
+              if (item.id === "courses") {
+                router.push("/dashboard");
+              }
+            };
+
             const buttonContent = (
               <button
                 key={item.id}
-                onClick={() => setActiveItem(item.id)}
+                onClick={handleClick}
                 className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-lg transition-all ${
                   isActive
                     ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"

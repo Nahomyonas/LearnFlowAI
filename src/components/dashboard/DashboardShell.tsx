@@ -10,11 +10,15 @@ type Props = {
 
 export function DashboardShell({ children }: Props) {
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-8">{children}</main>
+    <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
+      <div className="shrink-0 z-50">
+        <Header />
+      </div>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="shrink-0">
+          <Sidebar />
+        </div>
+        <main className="flex-1 p-8 overflow-auto">{children}</main>
       </div>
     </div>
   );
