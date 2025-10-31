@@ -108,3 +108,18 @@ export const GenerateLessonContentResponseSchema = z.object({
 
 export type GenerateLessonContentRequest = z.infer<typeof GenerateLessonContentRequestSchema>;
 export type GenerateLessonContentResponse = z.infer<typeof GenerateLessonContentResponseSchema>;
+
+// ============================================================================
+// AI Generate Course Lesson Content (batch for a course)
+// ============================================================================
+
+export const GenerateCourseContentRequestSchema = z.object({
+  courseId: z.string().uuid(),
+});
+
+export const GenerateCourseContentResponseSchema = z.object({
+  ok: z.literal(true),
+});
+
+export type GenerateCourseContentRequest = z.infer<typeof GenerateCourseContentRequestSchema>;
+export type GenerateCourseContentResponse = z.infer<typeof GenerateCourseContentResponseSchema>;

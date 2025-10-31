@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { motion } from "motion/react";
 import ReactMarkdown from "react-markdown";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
-import { ScrollArea } from "./ui/scroll-area";
 import { DashboardShell } from "./DashboardShell";
 import {
   ArrowLeft,
@@ -20,6 +19,7 @@ import {
   Lock,
   Play,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 
 interface SimpleCourseProps {
@@ -44,7 +44,13 @@ interface Module {
 
 export function CoursePage({ onBack }: SimpleCourseProps) {
   const router = useRouter();
+  const params = useParams();
+  const courseId = params?.id as string;
   
+  const [isLoading, setIsLoading] = useState(true);
+  const [courseTitle, setCourseTitle] = useState("Course");
+  const [courseSummary, setCourseSummary] = useState("");
+
   const handleBack = () => {
     if (onBack) {
       onBack();
@@ -53,251 +59,82 @@ export function CoursePage({ onBack }: SimpleCourseProps) {
     }
   };
 
-  // Sample course data
-  const [modules, setModules] = useState<Module[]>([
-    {
-      id: "m1",
-      title: "Introduction to the Fundamentals",
-      expanded: true,
-      lessons: [
-        {
-          id: "m1-l1",
-          title: "Welcome and Course Overview",
-          duration: "5 min",
-          completed: true,
-          locked: false,
-          content: `# Welcome and Course Overview
+  // Load course data from API
+  const [modules, setModules] = useState<Module[]>([]);
 
-Welcome to this comprehensive course! We're excited to have you here.
+  useEffect(() => {
+    if (!courseId) return;
 
-## What You'll Learn
+    const loadCourseData = async () => {
+      try {
+        setIsLoading(true);
+        const apiHelpers = await import("@/utils/api_helpers");
+        
+        // Load course details
+        const course = await apiHelpers.api.courses.get(courseId);
+        setCourseTitle(course.title);
+        setCourseSummary(course.summary || "");
+        
+        // Load modules and lessons
+        const dbModules = await apiHelpers.api.modules.listByCourse(courseId);
+        
+        const modulesWithLessons = await Promise.all(
+          dbModules.map(async (mod, index) => {
+            const lessons = await apiHelpers.api.lessons.listByModule(mod.id);
+            return {
+              id: mod.id,
+              title: mod.title,
+              expanded: index === 0, // Expand first module by default
+              lessons: lessons.map((l: any) => ({
+                id: l.id,
+                title: l.title,
+                content: typeof l.content === 'string' ? l.content : JSON.stringify(l.content),
+                duration: "5 min", // TODO: Calculate from content or store in DB
+                completed: false, // TODO: Track user progress
+                locked: false, // TODO: Implement lesson locking logic
+              }))
+            };
+          })
+        );
+        
+        setModules(modulesWithLessons);
+      } catch (err) {
+        console.error("Failed to load course data", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-In this course, you'll gain a deep understanding of the fundamental concepts and practical skills needed to master this subject. Here's what we'll cover:
-
-- **Core Concepts**: Understanding the foundational principles
-- **Practical Applications**: Real-world use cases and examples
-- **Best Practices**: Industry-standard approaches and techniques
-- **Advanced Topics**: Taking your skills to the next level
-
-## Course Structure
-
-This course is organized into modules, each focusing on a specific aspect of the subject. Within each module, you'll find:
-
-1. Video lessons with clear explanations
-2. Code examples and demonstrations
-3. Hands-on exercises
-4. Quizzes to test your knowledge
-
-## Prerequisites
-
-This course is designed for learners with basic knowledge of the subject area. If you're completely new, we recommend starting with our beginner course first.
-
-## Tips for Success
-
-- **Stay Consistent**: Try to complete at least one lesson per day
-- **Practice Regularly**: Apply what you learn through the exercises
-- **Ask Questions**: Use the discussion forum if you need help
-- **Review Previous Lessons**: Don't hesitate to go back and review
-
-Let's get started on this exciting learning journey!`,
-        },
-        {
-          id: "m1-l2",
-          title: "Setting Up Your Environment",
-          duration: "12 min",
-          completed: true,
-          locked: false,
-          content: `# Setting Up Your Environment
-
-Before we dive into the main content, let's make sure you have everything set up properly.
-
-## Required Software
-
-You'll need to install the following tools:
-
-### 1. Code Editor
-We recommend using Visual Studio Code, but you can use any editor you're comfortable with.
-
-\`\`\`bash
-# Download from https://code.visualstudio.com/
-\`\`\`
-
-### 2. Runtime Environment
-Install the latest LTS version of the runtime.
-
-\`\`\`bash
-# Installation command
-npm install -g package-name
-\`\`\`
-
-### 3. Version Control
-Make sure you have Git installed for version control.
-
-\`\`\`bash
-git --version
-\`\`\`
-
-## Project Setup
-
-Create a new project folder and initialize it:
-
-\`\`\`bash
-mkdir my-project
-cd my-project
-npm init -y
-\`\`\`
-
-## Verification
-
-Run the following command to verify everything is installed correctly:
-
-\`\`\`bash
-npm --version
-\`\`\`
-
-If you see version numbers, you're all set!
-
-## Next Steps
-
-In the next lesson, we'll explore the core concepts that form the foundation of this subject.`,
-        },
-        {
-          id: "m1-l3",
-          title: "Core Concepts Explained",
-          duration: "18 min",
-          completed: false,
-          locked: false,
-          content: `# Core Concepts Explained
-
-Now that your environment is ready, let's dive into the fundamental concepts.
-
-## Understanding the Basics
-
-Every complex system is built on simple foundational principles. In this lesson, we'll break down these core concepts into digestible pieces.
-
-### Concept 1: The Foundation
-
-This is the most important concept to understand. Everything else builds on top of this.
-
-**Key Points:**
-- Point one explaining the concept
-- Point two with additional details
-- Point three with practical examples
-
-### Concept 2: Building Blocks
-
-Once you understand the foundation, these building blocks will help you create more complex solutions.
-
-\`\`\`javascript
-// Example code demonstrating the concept
-const example = {
-  property: 'value',
-  method: function() {
-    return 'result';
-  }
-};
-\`\`\`
-
-### Concept 3: Putting It Together
-
-This is where it all comes together. Let's see how these concepts work in harmony.
-
-## Practice Exercise
-
-Try implementing what you've learned:
-
-1. Create a new file
-2. Implement the concepts we discussed
-3. Test your implementation
-4. Compare with the solution
-
-## Summary
-
-In this lesson, you learned:
-- ✓ The fundamental concepts
-- ✓ How they work together
-- ✓ Practical applications
-
-Ready to move on? Let's continue to the next module!`,
-        },
-      ],
-    },
-    {
-      id: "m2",
-      title: "Building Your First Project",
-      expanded: false,
-      lessons: [
-        {
-          id: "m2-l1",
-          title: "Project Planning and Setup",
-          duration: "15 min",
-          completed: false,
-          locked: false,
-          content: "# Project Planning and Setup\n\nContent for this lesson...",
-        },
-        {
-          id: "m2-l2",
-          title: "Implementing Core Features",
-          duration: "25 min",
-          completed: false,
-          locked: false,
-          content: "# Implementing Core Features\n\nContent for this lesson...",
-        },
-        {
-          id: "m2-l3",
-          title: "Testing and Debugging",
-          duration: "20 min",
-          completed: false,
-          locked: false,
-          content: "# Testing and Debugging\n\nContent for this lesson...",
-        },
-        {
-          id: "m2-l4",
-          title: "Deployment Basics",
-          duration: "10 min",
-          completed: false,
-          locked: false,
-          content: "# Deployment Basics\n\nContent for this lesson...",
-        },
-      ],
-    },
-    {
-      id: "m3",
-      title: "Advanced Techniques",
-      expanded: false,
-      lessons: [
-        {
-          id: "m3-l1",
-          title: "Optimization Strategies",
-          duration: "22 min",
-          completed: false,
-          locked: true,
-          content: "# Optimization Strategies\n\nContent for this lesson...",
-        },
-        {
-          id: "m3-l2",
-          title: "Best Practices and Patterns",
-          duration: "18 min",
-          completed: false,
-          locked: true,
-          content: "# Best Practices and Patterns\n\nContent for this lesson...",
-        },
-        {
-          id: "m3-l3",
-          title: "Real-World Applications",
-          duration: "30 min",
-          completed: false,
-          locked: true,
-          content: "# Real-World Applications\n\nContent for this lesson...",
-        },
-      ],
-    },
-  ]);
+    loadCourseData();
+  }, [courseId]);
 
   const [selectedLesson, setSelectedLesson] = useState<{
     moduleId: string;
     lessonId: string;
-  }>({ moduleId: "m1", lessonId: "m1-l1" });
+  } | null>(null);
+
+  // Ref for scrolling content area to top when lesson changes
+  const lessonContentRef = useRef<HTMLDivElement>(null);
+
+  // Auto-select first lesson when modules load
+  useEffect(() => {
+    if (modules.length > 0 && !selectedLesson) {
+      const firstModule = modules[0];
+      if (firstModule.lessons.length > 0) {
+        setSelectedLesson({
+          moduleId: firstModule.id,
+          lessonId: firstModule.lessons[0].id,
+        });
+      }
+    }
+  }, [modules, selectedLesson]);
+
+  // Scroll to top when lesson changes
+  useEffect(() => {
+    if (lessonContentRef.current) {
+      lessonContentRef.current.scrollTop = 0;
+    }
+  }, [selectedLesson]);
 
   const toggleModule = (moduleId: string) => {
     setModules((prevModules) =>
@@ -314,6 +151,8 @@ Ready to move on? Let's continue to the next module!`,
   };
 
   const markLessonComplete = () => {
+    if (!selectedLesson) return;
+    
     setModules((prevModules) =>
       prevModules.map((m) =>
         m.id === selectedLesson.moduleId
@@ -331,6 +170,8 @@ Ready to move on? Let's continue to the next module!`,
   };
 
   const getNextLesson = () => {
+    if (!selectedLesson) return null;
+    
     let foundCurrent = false;
     for (const module of modules) {
       for (const lesson of module.lessons) {
@@ -362,6 +203,8 @@ Ready to move on? Let's continue to the next module!`,
   };
 
   const getCurrentLessonData = () => {
+    if (!selectedLesson) return null;
+    
     const module = modules.find((m) => m.id === selectedLesson.moduleId);
     if (!module) return null;
     const lesson = module.lessons.find((l) => l.id === selectedLesson.lessonId);
@@ -385,9 +228,22 @@ Ready to move on? Let's continue to the next module!`,
   const progress = calculateProgress();
   const nextLesson = getNextLesson();
 
+  if (isLoading) {
+    return (
+      <DashboardShell noPadding>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading course...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
   return (
-    <DashboardShell>
-      <div className="flex flex-col h-full w-full -m-8 overflow-hidden">
+    <DashboardShell noPadding>
+      <div className="flex flex-col h-full w-full overflow-hidden">
         {/* Top Bar with Progress */}
         <div className="bg-white border-b px-8 py-4 shrink-0">
         <Button variant="ghost" className="mb-3 -ml-2" onClick={handleBack}>
@@ -396,8 +252,8 @@ Ready to move on? Let's continue to the next module!`,
         </Button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-gray-900">Introduction to Web Development</h2>
-            <p className="text-sm text-gray-600">Master the fundamentals</p>
+            <h2 className="text-gray-900">{courseTitle}</h2>
+            <p className="text-sm text-gray-600">{courseSummary || "Master the fundamentals"}</p>
           </div>
           <div className="text-right min-w-[200px]">
             <p className="text-sm text-gray-600 mb-1">Course Progress</p>
@@ -412,14 +268,14 @@ Ready to move on? Let's continue to the next module!`,
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Module & Lesson List */}
-        <div className="w-80 bg-white border-r flex flex-col">
-              <div className="p-4 border-b">
+        <div className="w-80 bg-white border-r flex flex-col overflow-hidden">
+              <div className="p-4 border-b shrink-0">
                 <h3 className="flex items-center gap-2 text-gray-900">
                   <BookOpen className="h-5 w-5 text-blue-600" />
                   Course Content
                 </h3>
               </div>
-              <ScrollArea className="flex-1">
+              <div className="flex-1 overflow-y-auto">
                 <div className="p-4 space-y-2">
                   {modules.map((module, moduleIndex) => (
                     <div key={module.id}>
@@ -461,8 +317,8 @@ Ready to move on? Let's continue to the next module!`,
                               }
                               disabled={lesson.locked}
                               className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
-                                selectedLesson.moduleId === module.id &&
-                                selectedLesson.lessonId === lesson.id
+                                selectedLesson?.moduleId === module.id &&
+                                selectedLesson?.lessonId === lesson.id
                                   ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
                                   : lesson.locked
                                   ? "opacity-50 cursor-not-allowed"
@@ -472,8 +328,8 @@ Ready to move on? Let's continue to the next module!`,
                               <div className="flex items-center gap-3">
                                 <div
                                   className={`flex items-center justify-center w-6 h-6 rounded-full text-xs shrink-0 ${
-                                    selectedLesson.moduleId === module.id &&
-                                    selectedLesson.lessonId === lesson.id
+                                    selectedLesson?.moduleId === module.id &&
+                                    selectedLesson?.lessonId === lesson.id
                                       ? "bg-white text-blue-600"
                                       : "bg-gray-100 text-gray-600"
                                   }`}
@@ -484,8 +340,8 @@ Ready to move on? Let's continue to the next module!`,
                                   <div className="text-sm">{lesson.title}</div>
                                   <div
                                     className={`text-xs ${
-                                      selectedLesson.moduleId === module.id &&
-                                      selectedLesson.lessonId === lesson.id
+                                      selectedLesson?.moduleId === module.id &&
+                                      selectedLesson?.lessonId === lesson.id
                                         ? "text-blue-100"
                                         : "text-gray-500"
                                     }`}
@@ -510,7 +366,7 @@ Ready to move on? Let's continue to the next module!`,
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
 
             {/* Right Content Area - Lesson Display */}
@@ -547,7 +403,7 @@ Ready to move on? Let's continue to the next module!`,
                   </div>
 
                   {/* Lesson Content - Scrollable */}
-                  <div className="flex-1 overflow-y-auto bg-white pb-24">
+                  <div ref={lessonContentRef} className="flex-1 overflow-y-auto bg-white pb-24">
                     <div className="max-w-4xl mx-auto px-8 py-8">
                       <div className="prose prose-lg max-w-none">
                         <ReactMarkdown

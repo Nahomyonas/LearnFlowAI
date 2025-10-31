@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       moduleId: lessons.moduleId,
       title: lessons.title,
       status: lessons.status,
+      generationStatus: lessons.generationStatus,
       position: lessons.position,
       content: lessons.content,
       updated_at: lessons.updatedAt,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/dashboard/ui/card";
 import { Input } from "@/components/dashboard/ui/input";
 import { Textarea } from "@/components/dashboard/ui/textarea";
@@ -26,7 +26,12 @@ import { useRouter } from "next/navigation";
 import { api } from "@/utils/api_helpers";
 
 
-export function CreateCourseBrief() {
+
+interface CreateCourseBriefProps {
+  briefId?: string;
+}
+
+export function CreateCourseBrief({ briefId }: CreateCourseBriefProps) {
 
   const router = useRouter();
 
@@ -39,6 +44,31 @@ export function CreateCourseBrief() {
     coverImage: null as File | null,
   });
   const [learningGoals, setLearningGoals] = useState<string[]>([""]);
+
+  // Autofill if briefId is provided
+  useEffect(() => {
+    if (!briefId) return;
+    let isMounted = true;
+    (async () => {
+      try {
+        const brief = await api.briefs.get(briefId);
+        if (!brief) return;
+        if (isMounted) {
+          setFormData(prev => ({
+            ...prev,
+            title: brief.topic || "",
+            summary: brief.details || "",
+            // Add more fields if your brief schema supports them
+          }));
+          setLearningGoals(Array.isArray(brief.goals) && brief.goals.length > 0 ? brief.goals : [""]);
+        }
+      } catch (err) {
+        // Optionally handle error (e.g., show toast)
+        // console.error("Failed to fetch brief", err);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [briefId]);
   // AI suggestions state
   const [isSuggestingGoals, setIsSuggestingGoals] = useState(false);
   const [hasUsedAISuggestions, setHasUsedAISuggestions] = useState(false);

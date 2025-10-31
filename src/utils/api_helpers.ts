@@ -20,10 +20,11 @@ type Course = {
   id: string
   title: string
   slug: string
+  summary?: string | null
   status: Status
   visibility: 'private' | 'unlisted' | 'public'
   updated_at: string
-  goals?: string[] | null // ← add this
+  goals?: string[] | null
 }
 
 type Module = {
@@ -151,6 +152,7 @@ export const api = {
           j?.error?.message ||
             (res.status === 409 ? 'Already committed' : 'Commit failed')
         )
+      return j as { course_id: string; status: string; module_count: number; lesson_count: number }
     },
   },
   courses: {
@@ -163,6 +165,17 @@ export const api = {
         throw new Error(j?.error?.message || 'Failed to load courses')
       return (j.items ?? []) as Course[]
     },
+    get: async (id: string) => {
+      const res = await fetch(`/api/courses/${id}`, {
+        cache: 'no-store',
+      })
+      const j = await res.json()
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('Course not found')
+        throw new Error(j?.error?.message || 'Failed to load course')
+      }
+      return j as Course & { created_at: string; updated_at: string }
+    },
     create: async (payload: { title: string }) => {
       const res = await fetch('/api/courses', {
         method: 'POST',
@@ -172,6 +185,32 @@ export const api = {
       const j = await res.json().catch(() => ({}))
       if (!res.ok)
         throw new Error(j?.error?.message || 'Failed to create course')
+    },
+    update: async (
+      id: string,
+      payload: {
+        title?: string
+        summary?: string
+        status?: 'draft' | 'published' | 'archived'
+        visibility?: 'private' | 'unlisted' | 'public'
+        goals?: string[]
+      },
+      etag?: string
+    ) => {
+      const res = await fetch(`/api/courses/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          ...(etag ? { 'if-match': etag } : {}),
+        },
+        body: JSON.stringify(payload),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 412) throw new Error('Course was modified')
+        throw new Error(j?.error?.message || 'Failed to update course')
+      }
+      return j as Course & { created_at: string; updated_at: string }
     },
   },
   modules: {
@@ -231,6 +270,17 @@ export const api = {
     },
   },
   ai: {
+      generateCourseContent: async (courseId: string) => {
+        const res = await fetch('/api/ai/generate-lesson-content', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ courseId }),
+        })
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok)
+          throw new Error(j?.error?.message || 'Failed to start content generation')
+        return j as { ok: true }
+      },
       generateLessonContent: async (payload: {
         topic: string;
         moduleTitle: string;

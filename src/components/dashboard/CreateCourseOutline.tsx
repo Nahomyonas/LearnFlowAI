@@ -39,10 +39,13 @@ interface Module {
   lessons: Lesson[];
 }
 
-export function CreateCourseOutline() {
+interface CreateCourseOutlineProps {
+  briefId?: string;
+}
+
+export function CreateCourseOutline({ briefId: briefIdProp }: CreateCourseOutlineProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const briefId = searchParams.get("briefId");
+  const briefId = briefIdProp;
 
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
@@ -67,6 +70,24 @@ export function CreateCourseOutline() {
           details: brief.details,
           goals: brief.goals,
         });
+        
+        // Auto-fill outline if it already exists
+        if (brief.planOutline) {
+          const outline = brief.planOutline;
+          const modules: Module[] = outline.modules.map((mod: any, idx: number) => ({
+            id: `m${idx + 1}`,
+            title: mod.title,
+            lessons: mod.lessons.map((lesson: any, lessonIdx: number) => ({
+              id: `m${idx + 1}-l${lessonIdx + 1}`,
+              title: lesson.title,
+            })),
+          }));
+          
+          setGeneratedModules(modules);
+          setExpandedModules(new Set(modules.map(m => m.id)));
+          setOutlineMode("ai"); // Set to AI mode since outline was generated
+        }
+        
         setIsValid(true);
       } catch (error) {
         console.error("Error validating brief:", error);
@@ -294,10 +315,40 @@ export function CreateCourseOutline() {
     );
   };
 
-  const handleContinue = () => {
-    if (briefId) {
-      router.push(`/dashboard/courses/create/content?briefId=${briefId}`);
+  const [isCommitting, setIsCommitting] = useState(false);
+  const handleContinue = async () => {
+    if (!briefId) return;
+
+    setIsCommitting(true);
+    let courseId: string | undefined;
+    try {
+      const result = await api.briefs.commit(briefId);
+      courseId = result.course_id;
+    } catch (err: any) {
+      // If already committed, we need to get the courseId from the brief
+      const msg = err?.message || "";
+      const alreadyCommitted = /Already committed/i.test(msg);
+      if (!alreadyCommitted) {
+        alert(msg || "Failed to create course from outline");
+        setIsCommitting(false);
+        return;
+      }
+      
+      // Get the courseId from the conflict error details or fetch the brief
+      if (err?.details?.courseId) {
+        courseId = err.details.courseId;
+      } else {
+        try {
+          const brief = await api.briefs.get(briefId);
+          // The brief should have a committedCourseId or we can infer from the error
+          // For now, proceed without courseId and let the content page handle it
+        } catch {
+          // Ignore and proceed
+        }
+      }
     }
+
+    router.push(`/dashboard/courses/create/content?briefId=${briefId}${courseId ? `&courseId=${courseId}` : ''}`);
   };
 
   // Show loading state while validating
@@ -319,7 +370,7 @@ export function CreateCourseOutline() {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" className="mb-4 -ml-2" onClick={() => router.push("/dashboard/courses/create")}>
+          <Button variant="ghost" className="mb-4 -ml-2" onClick={() => router.push(`/dashboard/courses/create?briefId=${briefId}`)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Course Brief
           </Button>
@@ -719,11 +770,18 @@ export function CreateCourseOutline() {
           </div>
           <Button 
             size="lg" 
-            disabled={outlineMode === "ai" ? !isAIModeReady() : !isManualModeValid()}
+            disabled={(outlineMode === "ai" ? !isAIModeReady() : !isManualModeValid()) || isCommitting}
             onClick={handleContinue}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Course & Fill Content
+            {isCommitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Preparing Course...
+              </>
+            ) : (
+              "Create Course & Fill Content"
+            )}
           </Button>
         </div>
       </div>

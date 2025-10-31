@@ -58,6 +58,13 @@ export const lessonStatusEnum = pgEnum("lesson_status", [
   "archived",
 ]);
 
+export const lessonGenerationStatusEnum = pgEnum("lesson_generation_status", [
+  "pending",
+  "generating",
+  "generated",
+  "failed",
+]);
+
 export const visibilityEnum = pgEnum("visibility", ["private", "unlisted", "public"]);
 export const courseStatusEnum = pgEnum("course_status", ["draft", "published", "archived"]);
 
@@ -119,6 +126,11 @@ export const lessons = pgTable(
     title: text("title").notNull(),
     position: integer("position").notNull(), // set by API (max+1)
     status: lessonStatusEnum("status").notNull().default("draft"),
+
+    // Track AI content generation progress
+    generationStatus: lessonGenerationStatusEnum("generation_status")
+      .notNull()
+      .default("pending"),
 
     // Block-based content model (default to empty array)
     content: jsonb("content").notNull().default(sql`'[]'::jsonb`),

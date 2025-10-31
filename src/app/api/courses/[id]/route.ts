@@ -20,6 +20,7 @@ function parseIfMatch(req: Request) {
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const userId = await requireUserId();
+  params = await params
 
   const [row] = await db
     .select()

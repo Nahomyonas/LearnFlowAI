@@ -6,9 +6,10 @@ import { ReactNode } from "react";
 
 type Props = {
   children: ReactNode;
+  noPadding?: boolean;
 };
 
-export function DashboardShell({ children }: Props) {
+export function DashboardShell({ children, noPadding = false }: Props) {
   return (
     <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
       <div className="shrink-0 z-50">
@@ -18,7 +19,7 @@ export function DashboardShell({ children }: Props) {
         <div className="shrink-0">
           <Sidebar />
         </div>
-        <main className="flex-1 p-8 overflow-auto">{children}</main>
+        <main className={noPadding ? "flex-1 overflow-hidden" : "flex-1 p-8 overflow-auto"}>{children}</main>
       </div>
     </div>
   );

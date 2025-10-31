@@ -34,7 +34,7 @@ interface Lesson {
   id: string;
   title: string;
   content: string;
-  generationStatus?: "pending" | "generating" | "generated";
+  generationStatus?: "pending" | "generating" | "generated" | "failed";
 }
 
 interface Module {
@@ -48,6 +48,7 @@ export function FillCourseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const briefId = searchParams.get("briefId");
+  const courseId = searchParams.get("courseId");
 
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
@@ -85,131 +86,135 @@ export function FillCourseContent() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   
-  // Load modules and lessons from brief's planOutline
+  // Load modules and lessons from DB if courseId exists, otherwise from brief outline
   const [modules, setModules] = useState<Module[]>([]);
 
   useEffect(() => {
-    const fetchModulesFromBrief = async () => {
-      if (!briefId) return;
-      try {
-        const apiHelpers = await import("@/utils/api_helpers");
-        const brief = await apiHelpers.api.briefs.get(briefId);
-        let parsed = null;
-        if (brief.planOutline) {
-          parsed = aiOutlineContract.safeParse(brief.planOutline);
-        }
-        if (parsed && parsed.success) {
-          const loadedModules: Module[] = parsed.data.modules.map((mod, idx) => ({
-            id: `m${idx + 1}`,
-            title: mod.title,
-            lessons: mod.lessons.map((lesson, lessonIdx) => ({
-              id: `m${idx + 1}-l${lessonIdx + 1}`,
-              title: lesson.title,
-              content: "",
-              generationStatus: "pending"
-            })),
-          }));
-          setModules(loadedModules);
-        } else {
+    const fetchModulesAndLessons = async () => {
+      if (!courseId) {
+        // Load from brief outline if no course yet
+        if (!briefId) return;
+        try {
+          const apiHelpers = await import("@/utils/api_helpers");
+          const brief = await apiHelpers.api.briefs.get(briefId);
+          let parsed = null;
+          if (brief.planOutline) {
+            parsed = aiOutlineContract.safeParse(brief.planOutline);
+          }
+          if (parsed && parsed.success) {
+            const loadedModules: Module[] = parsed.data.modules.map((mod, idx) => ({
+              id: `m${idx + 1}`,
+              title: mod.title,
+              lessons: mod.lessons.map((lesson, lessonIdx) => ({
+                id: `m${idx + 1}-l${lessonIdx + 1}`,
+                title: lesson.title,
+                content: "",
+                generationStatus: "pending"
+              })),
+            }));
+            setModules(loadedModules);
+          } else {
+            setModules([]);
+          }
+        } catch (err) {
+          console.error("Failed to load modules from brief", err);
           setModules([]);
         }
-      } catch (err) {
-        // Optionally handle error
-        console.error("Failed to load modules from brief", err);
-        setModules([]);
+      } else {
+        // Load from DB using courseId
+        try {
+          const apiHelpers = await import("@/utils/api_helpers");
+          const dbModules = await apiHelpers.api.modules.listByCourse(courseId);
+          
+          const modulesWithLessons = await Promise.all(
+            dbModules.map(async (mod) => {
+              const lessons = await apiHelpers.api.lessons.listByModule(mod.id);
+              return {
+                id: mod.id,
+                title: mod.title,
+                lessons: lessons.map((l: any) => ({
+                  id: l.id,
+                  title: l.title,
+                  content: l.content || "",
+                  generationStatus: l.generationStatus || "pending"
+                }))
+              };
+            })
+          );
+          
+          setModules(modulesWithLessons);
+        } catch (err) {
+          console.error("Failed to load modules from DB", err);
+          setModules([]);
+        }
       }
     };
-    fetchModulesFromBrief();
-    // Only run on mount or when briefId changes
-  }, [briefId]);
+    
+    fetchModulesAndLessons();
+  }, [briefId, courseId]);
+
+  // Poll for lesson status updates when generation is in progress
+  useEffect(() => {
+    if (!courseId || !isGenerating) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const apiHelpers = await import("@/utils/api_helpers");
+        const dbModules = await apiHelpers.api.modules.listByCourse(courseId);
+        
+        const modulesWithLessons = await Promise.all(
+          dbModules.map(async (mod) => {
+            const lessons = await apiHelpers.api.lessons.listByModule(mod.id);
+            return {
+              id: mod.id,
+              title: mod.title,
+              lessons: lessons.map((l: any) => ({
+                id: l.id,
+                title: l.title,
+                content: l.content || "",
+                generationStatus: l.generationStatus || "pending"
+              }))
+            };
+          })
+        );
+        
+        setModules(modulesWithLessons);
+        
+        // Check if all lessons are done (generated or failed)
+        const allDone = modulesWithLessons.every(m => 
+          m.lessons.every(l => l.generationStatus === "generated" || l.generationStatus === "failed")
+        );
+        
+        if (allDone) {
+          setIsGenerating(false);
+        }
+      } catch (err) {
+        console.error("Failed to poll lesson status", err);
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [courseId, isGenerating]);
 
   const [selectedLesson, setSelectedLesson] = useState<{ moduleId: string; lessonId: string } | null>(null);
 
   const handleGenerateContent = async () => {
+    if (!courseId) {
+      console.error("No courseId available");
+      return;
+    }
+
     setIsGenerating(true);
     setHasGenerated(true);
 
-    // Gather topic from brief (for now, use first module title as fallback)
-    const topic = modules[0]?.title || "Course";
-
-    // Import API helpers once
-    const apiHelpers = await import("@/utils/api_helpers");
-
-    // Generate content for each lesson sequentially
-    for (const module of modules) {
-      for (const lesson of module.lessons) {
-        // Set to generating
-        setModules(prevModules =>
-          prevModules.map(prevModule =>
-            prevModule.id === module.id
-              ? {
-                  ...prevModule,
-                  lessons: prevModule.lessons.map(prevLesson =>
-                    prevLesson.id === lesson.id ? { ...prevLesson, generationStatus: "generating" as const } : prevLesson
-                  )
-                }
-              : prevModule
-          )
-        );
-
-        try {
-          // Call the real AI API
-          const result = await apiHelpers.api.ai.generateLessonContent({
-            topic,
-            moduleTitle: module.title,
-            lessonTitle: lesson.title,
-          });
-
-          // Persist generated content to backend
-          try {
-            await apiHelpers.api.lessons.update(lesson.id, { content: result.content });
-          } catch (persistError) {
-            // Optionally handle error (e.g., show notification)
-            // For now, just log
-            console.error("Failed to persist lesson content", persistError);
-          }
-
-          setModules(prevModules =>
-            prevModules.map(prevModule =>
-              prevModule.id === module.id
-                ? {
-                    ...prevModule,
-                    lessons: prevModule.lessons.map(prevLesson =>
-                      prevLesson.id === lesson.id
-                        ? {
-                            ...prevLesson,
-                            generationStatus: "generated" as const,
-                            content: result.content,
-                          }
-                        : prevLesson
-                    )
-                  }
-                : prevModule
-            )
-          );
-        } catch (error) {
-          setModules(prevModules =>
-            prevModules.map(prevModule =>
-              prevModule.id === module.id
-                ? {
-                    ...prevModule,
-                    lessons: prevModule.lessons.map(prevLesson =>
-                      prevLesson.id === lesson.id
-                        ? {
-                            ...prevLesson,
-                            generationStatus: "pending" as const,
-                            content: "[Error generating content]",
-                          }
-                        : prevLesson
-                    )
-                  }
-                : prevModule
-            )
-          );
-        }
-      }
+    try {
+      const apiHelpers = await import("@/utils/api_helpers");
+      await apiHelpers.api.ai.generateCourseContent(courseId);
+    } catch (error: any) {
+      console.error("Failed to start content generation:", error);
+      alert(error?.message || "Failed to start content generation");
+      setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const getSelectedLessonData = () => {
@@ -400,7 +405,7 @@ export function FillCourseContent() {
                   <div className="text-center py-4">
                     <Button
                       onClick={handleGenerateContent}
-                      disabled={isGenerating}
+                      disabled={isGenerating || !courseId}
                       className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                       size="lg"
                     >
@@ -416,6 +421,11 @@ export function FillCourseContent() {
                         </>
                       )}
                     </Button>
+                    {!courseId && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Course must be created before generating content
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -461,6 +471,11 @@ export function FillCourseContent() {
                                   <Badge className="bg-green-500">
                                     <Check className="h-3 w-3 mr-1" />
                                     Generated
+                                  </Badge>
+                                )}
+                                {lesson.generationStatus === "failed" && (
+                                  <Badge variant="destructive">
+                                    Failed
                                   </Badge>
                                 )}
                               </div>
@@ -617,13 +632,27 @@ export function FillCourseContent() {
             disabled={contentMode === "ai" ? (!hasGenerated || isGenerating) : isPublishing}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={async () => {
-              if (!briefId) return;
+              if (!courseId) {
+                alert("Course not found. Please create the course from the outline first.");
+                return;
+              }
               setIsPublishing(true);
               try {
                 const apiHelpers = await import("@/utils/api_helpers");
-                await apiHelpers.api.briefs.commit(briefId);
-                // Optionally, navigate to the new course or show a success message
-                router.push("/dashboard");
+                
+                // Get current course data for etag
+                const course = await apiHelpers.api.courses.get(courseId);
+                const etag = `W/"${new Date(course.updated_at).getTime()}"`;
+                
+                // Update course status to published
+                await apiHelpers.api.courses.update(
+                  courseId,
+                  { status: "published" },
+                  etag
+                );
+                
+                // Navigate to the course page
+                router.push(`/dashboard/courses/${courseId}`);
               } catch (error: any) {
                 alert(error?.message || "Failed to publish course");
               } finally {
