@@ -191,7 +191,7 @@ export function FillCourseContent() {
       } catch (err) {
         console.error("Failed to poll lesson status", err);
       }
-    }, 3000); // Poll every 3 seconds
+  }, 1500); // Poll every 1.5 seconds
 
     return () => clearInterval(pollInterval);
   }, [courseId, isGenerating]);
